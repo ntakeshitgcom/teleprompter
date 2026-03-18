@@ -3,533 +3,304 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>テレプロンプター</title>
 <style>
-:root {
-  --bg:      #0d0d0d;
-  --surface: #1a1a1a;
-  --border:  #2e2e2e;
-  --accent:  #00e87a;
-  --accent2: #00c8ff;
-  --text:    #f0f0f0;
-  --muted:   #666;
-  --rec:     #ff2244;
-  --font:    -apple-system,'Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;
-  --mono:    ui-monospace,'SF Mono',Menlo,monospace;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { width: 100%; height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; touch-action: none; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, sans-serif; }
 
-.screen { position: fixed; inset: 0; display: none; flex-direction: column; }
-.screen.active { display: flex; }
-
-/* ════ EDIT ════ */
+/* 画面切り替えはシンプルにvisibilityで */
 #editScreen {
-  background: var(--bg);
-  padding-top: env(safe-area-inset-top,20px);
-  padding-bottom: env(safe-area-inset-bottom,20px);
+  position: fixed; inset: 0;
+  background: #111;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 12px;
+  overflow-y: auto;
 }
-.edit-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.app-logo { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: .12em; text-transform: uppercase; }
-.app-logo em { color: var(--accent2); font-style: normal; }
-.start-btn { background: var(--accent); color: #000; border: none; border-radius: 10px; padding: 11px 22px; font-family: var(--mono); font-weight: 700; font-size: 13px; cursor: pointer; }
-.start-btn:active { opacity: .75; }
-.scroll-area { flex: 1; overflow-y: auto; padding: 16px 20px; }
-.sec-label { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
-textarea { width: 100%; min-height: 180px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.75; padding: 14px 16px; resize: vertical; outline: none; -webkit-appearance: none; }
-textarea:focus { border-color: var(--accent); }
-textarea::placeholder { color: var(--muted); }
-.settings { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
-.row { display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; }
-.row-label { font-size: 13px; font-weight: 600; }
-.row-sub { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
-.ctrl { display: flex; align-items: center; gap: 10px; }
-.ci-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.ci-btn:active { background: var(--accent); color: #000; }
-.ci-val { font-family: var(--mono); font-size: 15px; font-weight: 700; color: var(--accent); min-width: 28px; text-align: center; }
-.tog { position: relative; width: 48px; height: 27px; flex-shrink: 0; }
-.tog input { opacity: 0; width: 0; height: 0; }
-.tog-track { position: absolute; inset: 0; background: var(--border); border-radius: 14px; cursor: pointer; transition: background .2s; }
-.tog input:checked + .tog-track { background: var(--accent); }
-.tog-track::after { content: ''; position: absolute; left: 3px; top: 3px; width: 21px; height: 21px; border-radius: 50%; background: #fff; transition: transform .2s; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-.tog input:checked + .tog-track::after { transform: translateX(21px); }
-.fsbtns { display: flex; gap: 6px; }
-.fsbtn { padding: 6px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; }
-.fsbtn.on { background: var(--accent); color: #000; border-color: var(--accent); }
+#prompterScreen {
+  position: fixed; inset: 0;
+  background: #000;
+  color: #fff;
+  display: none; /* JSでflexに切り替え */
+  flex-direction: column;
+}
 
-/* ════ PROMPTER ════ */
-#prompterScreen { background: #000; overflow: hidden; position: relative; }
+/* Edit */
+h1 { font-size: 18px; color: #00e87a; }
+textarea {
+  width: 100%; height: 160px;
+  background: #222; border: 1px solid #444; border-radius: 8px;
+  color: #fff; font-size: 16px; padding: 12px;
+  resize: none;
+}
+button {
+  padding: 14px; border-radius: 10px; border: none;
+  font-size: 16px; font-weight: bold; cursor: pointer;
+}
+.btn-start { background: #00e87a; color: #000; }
+.btn-back  { background: #333; color: #fff; }
 
-/*
-  iOSはDOMに実際に存在してレンダリングされるvideo要素でないと
-  再生が安定しないため、video要素を画面全体に配置してカメラ背景とする。
-  canvasは使わない。
-*/
+/* Prompter */
+#prompterScreen { position: fixed; inset: 0; background: #111; }
+
+/* 台本パネル */
+#panel {
+  position: absolute;
+  top: 70px; bottom: 80px;
+  left: 16px; right: 16px;
+  background: rgba(0,0,0,0.7);
+  border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 16px;
+  overflow: hidden;
+}
+#mask { position: absolute; inset: 0; overflow: hidden; }
+#content { padding: 40% 20px 60%; }
+#scriptText { font-size: 30px; line-height: 1.8; color: #fff; font-weight: bold; word-break: break-all; }
+
+/* controls */
+.top-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 64px; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 16px;
+  background: rgba(0,0,0,0.6);
+}
+.bot-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 76px; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 16px; gap: 12px;
+  background: rgba(0,0,0,0.6);
+}
+.ibtn {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: #333; color: #fff; font-size: 18px;
+  border: 1px solid #555; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pp {
+  width: 58px; height: 58px; border-radius: 50%;
+  background: rgba(0,232,122,0.15); color: #00e87a;
+  border: 2px solid #00e87a; font-size: 24px;
+  cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.pp.playing { background: rgba(255,208,0,0.15); color: #ffd000; border-color: #ffd000; }
+.spd { display: flex; align-items: center; gap: 8px; flex: 1; }
+.spd input { flex: 1; height: 4px; -webkit-appearance: none; background: #444; border-radius: 2px; }
+.spd input::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #00e87a; }
+.spd-num { font-size: 13px; color: #00e87a; font-weight: bold; min-width: 20px; text-align: center; }
+
+/* Camera */
 #camVideo {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
-  /* インカメラは左右反転して自然に見せる */
   transform: scaleX(-1);
   -webkit-transform: scaleX(-1);
-  display: none; /* startPrompter時にblockにする */
   z-index: 0;
-  background: #000;
+  background: transparent;
 }
-.no-cam-bg { position: absolute; inset: 0; z-index: 0; background: #111; }
-
-/* 台本パネル */
-#scriptPanel {
-  position: absolute;
-  top: 64px; bottom: 84px;
-  left: 16px; right: 16px;
-  z-index: 5;
-  background: rgba(0,0,0,0.65);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
-  backdrop-filter:         blur(14px) saturate(120%);
-  border: 1.5px solid rgba(255,255,255,0.18);
-  border-radius: 18px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.55), inset 0 0 0 .5px rgba(255,255,255,.06);
-  overflow: hidden;
-}
-/* フォーカスライン */
-#scriptPanel::before {
-  content: '';
-  position: absolute; left: 0; right: 0; top: 36%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent) 35%, var(--accent) 65%, transparent);
-  opacity: .5; z-index: 2; pointer-events: none;
-}
-/* 上下フェード */
-#scriptPanel::after {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,.7) 0%, transparent 20%, transparent 75%, rgba(0,0,0,.7) 100%);
-  z-index: 2; pointer-events: none;
-}
-#scrollMask { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
-#scrollContent { padding: 44% 24px 60%; }
-.script-text { font-size: 32px; line-height: 1.75; color: #fff; font-weight: 700; letter-spacing: .03em; word-break: break-all; text-shadow: 0 1px 8px rgba(0,0,0,.8); }
-.script-text.mirror { transform: scaleX(-1); }
-
-/* Top/Bottom bars */
-.p-top {
-  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
-  padding: calc(env(safe-area-inset-top,0px) + 10px) 16px 10px;
-  display: flex; align-items: center; justify-content: space-between;
-  background: linear-gradient(to bottom, rgba(0,0,0,.5), transparent);
-}
-.p-bot {
-  position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
-  padding: 10px 16px calc(env(safe-area-inset-bottom,0px) + 12px);
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  background: linear-gradient(to top, rgba(0,0,0,.5), transparent);
-}
-.ibtn { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.22); background: rgba(0,0,0,.55); color: #fff; font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.ibtn:active { background: rgba(255,255,255,.18); }
-.rec-ind { display: flex; align-items: center; gap: 6px; opacity: 0; transition: opacity .3s; }
-.rec-ind.on { opacity: 1; }
-.rec-badge { background: var(--rec); color: #fff; font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 4px; animation: blink 1s infinite; }
-.rec-time { font-family: var(--mono); font-size: 13px; color: #fff; font-weight: 700; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-.spd-strip { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
-.spd-val { font-family: var(--mono); font-size: 11px; color: rgba(255,255,255,.6); text-align: center; flex-shrink: 0; }
-.spd-val strong { font-size: 17px; color: var(--accent); display: block; }
-#pSlider { -webkit-appearance: none; flex: 1; height: 4px; background: rgba(255,255,255,.2); border-radius: 2px; outline: none; min-width: 0; }
-#pSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); }
-.pp-btn { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--accent); background: rgba(0,230,122,.1); color: var(--accent); font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 16px rgba(0,230,122,.2); flex-shrink: 0; }
-.pp-btn:active { transform: scale(.93); }
-.pp-btn.playing { border-color: #ffd000; background: rgba(255,208,0,.1); color: #ffd000; box-shadow: 0 0 16px rgba(255,208,0,.2); }
-.rec-btn { width: 50px; height: 50px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.35); background: rgba(0,0,0,.5); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.rec-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 8px rgba(255,34,68,.4); transition: all .25s; }
-.rec-btn.recording { border-color: var(--rec); }
-.rec-btn.recording .rec-dot { border-radius: 5px; width: 20px; height: 20px; animation: rpulse 1s infinite; }
-@keyframes rpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
-
-/* ── 横向き ── */
-@media (orientation: landscape) {
-  #scriptPanel { top: 8px; bottom: 8px; left: 64px; right: 64px; }
-  .p-top {
-    top: 0; left: 0; bottom: 0; right: auto; width: 64px;
-    flex-direction: column; justify-content: space-around;
-    padding: calc(env(safe-area-inset-top,0px)+12px) 10px 12px;
-    background: linear-gradient(to right, rgba(0,0,0,.5), transparent);
-  }
-  .p-bot {
-    top: 0; right: 0; bottom: 0; left: auto; width: 64px;
-    flex-direction: column; justify-content: space-around;
-    padding: 12px 10px calc(env(safe-area-inset-bottom,0px)+12px);
-    background: linear-gradient(to left, rgba(0,0,0,.5), transparent);
-    gap: 8px;
-  }
-  .spd-strip { flex-direction: column; flex: 1; }
-  #pSlider { writing-mode: vertical-lr; direction: rtl; width: 4px; flex: 1; height: auto; }
-}
-
-/* ════ DONE ════ */
-#doneOv { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 100; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
-#doneOv.on { display: flex; }
-.done-icon { font-size: 52px; }
-.done-title { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); }
-.done-sub { font-size: 12px; color: var(--muted); font-family: var(--mono); }
-.done-acts { display: flex; flex-direction: column; gap: 10px; width: 78%; }
-.dbtn { padding: 13px; border-radius: 12px; border: none; font-family: var(--mono); font-size: 13px; font-weight: 700; cursor: pointer; }
-.dbtn.pri { background: var(--accent); color: #000; }
-.dbtn.sec { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-
-::-webkit-scrollbar { display: none; }
+#panel { z-index: 2; }
+.top-bar { z-index: 3; }
+.bot-bar { z-index: 3; }
 </style>
 </head>
 <body>
 
 <!-- EDIT -->
-<div id="editScreen" class="screen active">
-  <div class="edit-header">
-    <div class="app-logo">PROMPT<em>ER</em></div>
-    <button class="start-btn" onclick="startPrompter()">▶ スタート</button>
-  </div>
-  <div class="scroll-area">
-    <div class="sec-label">📝 台本</div>
-    <textarea id="scriptInput" rows="10" placeholder="ここに台本を入力してください。&#10;&#10;例：&#10;みなさん、こんにちは！&#10;今日は〇〇についてお話しします。"></textarea>
-    <div class="settings">
-      <div class="row">
-        <div>
-          <div class="row-label">スクロール速度</div>
-          <div class="row-sub">現在: <span id="spdLabel">3</span> / 10</div>
-        </div>
-        <div class="ctrl">
-          <button class="ci-btn" onclick="chgSpd(-1)">−</button>
-          <div class="ci-val" id="spdVal">3</div>
-          <button class="ci-btn" onclick="chgSpd(1)">＋</button>
-        </div>
-      </div>
-      <div class="row">
-        <div><div class="row-label">文字サイズ</div></div>
-        <div class="fsbtns">
-          <button class="fsbtn"    onclick="setFS('small',this)">小</button>
-          <button class="fsbtn on" onclick="setFS('medium',this)">中</button>
-          <button class="fsbtn"    onclick="setFS('large',this)">大</button>
-          <button class="fsbtn"    onclick="setFS('xlarge',this)">特大</button>
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <div class="row-label">カメラ</div>
-          <div class="row-sub">背景にカメラ映像を表示</div>
-        </div>
-        <label class="tog"><input type="checkbox" id="camTog" checked><div class="tog-track"></div></label>
-      </div>
-      <div class="row">
-        <div>
-          <div class="row-label">ミラー反転</div>
-          <div class="row-sub">文字を左右反転（ハーフミラー用）</div>
-        </div>
-        <label class="tog"><input type="checkbox" id="mirrorTog"><div class="tog-track"></div></label>
-      </div>
+<div id="editScreen">
+  <h1>📽 テレプロンプター</h1>
+  <textarea id="txt" placeholder="台本を入力..."></textarea>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#222;padding:12px;border-radius:10px;">
+    <span style="font-size:13px;">文字サイズ</span>
+    <div style="display:flex;gap:6px;">
+      <button onclick="setFS(24,this)" style="padding:6px 10px;font-size:12px;background:#333;color:#aaa;border-radius:6px;border:1px solid #444;">小</button>
+      <button onclick="setFS(30,this)" style="padding:6px 10px;font-size:12px;background:#00e87a;color:#000;border-radius:6px;border:none;" id="fsDef">中</button>
+      <button onclick="setFS(38,this)" style="padding:6px 10px;font-size:12px;background:#333;color:#aaa;border-radius:6px;border:1px solid #444;">大</button>
+      <button onclick="setFS(48,this)" style="padding:6px 10px;font-size:12px;background:#333;color:#aaa;border-radius:6px;border:1px solid #444;">特大</button>
     </div>
   </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#222;padding:12px;border-radius:10px;">
+    <span style="font-size:13px;">スクロール速度 <span id="spdLbl" style="color:#00e87a;font-weight:bold;">3</span></span>
+    <div style="display:flex;gap:8px;">
+      <button onclick="chgSpd(-1)" style="width:36px;height:36px;border-radius:50%;background:#333;color:#fff;border:1px solid #555;font-size:20px;">−</button>
+      <button onclick="chgSpd(1)"  style="width:36px;height:36px;border-radius:50%;background:#333;color:#fff;border:1px solid #555;font-size:20px;">＋</button>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;background:#222;padding:12px;border-radius:10px;">
+    <span style="font-size:13px;">カメラ背景</span>
+    <label style="position:relative;width:48px;height:27px;">
+      <input type="checkbox" id="camOn" checked style="opacity:0;width:0;height:0;">
+      <span id="togTrack" style="position:absolute;inset:0;background:#00e87a;border-radius:14px;cursor:pointer;transition:background .2s;"></span>
+      <span id="togThumb" style="position:absolute;left:3px;top:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+    </label>
+  </div>
+
+  <button class="btn-start" onclick="goPrompter()">▶ スタート</button>
 </div>
 
 <!-- PROMPTER -->
-<div id="prompterScreen" class="screen">
+<div id="prompterScreen">
+  <video id="camVideo" playsinline webkit-playsinline muted autoplay></video>
 
-  <!--
-    iOSでは「DOMに存在しレンダリングされているvideo要素」でないと安定しない。
-    display:noneにせず、z-index:0で画面下に実際に描画する。
-  -->
-  <video id="camVideo"
-    playsinline
-    webkit-playsinline
-    muted
-    autoplay></video>
-
-  <div class="no-cam-bg" id="noCamBg"></div>
-
-  <div id="scriptPanel">
-    <div id="scrollMask">
-      <div id="scrollContent">
-        <div class="script-text" id="scriptDisp"></div>
+  <div id="panel">
+    <div id="mask">
+      <div id="content">
+        <div id="scriptText"></div>
       </div>
     </div>
   </div>
 
-  <div class="p-top">
-    <button class="ibtn" onclick="exitPrompter()">←</button>
-    <div class="rec-ind" id="recInd">
-      <div class="rec-badge">REC</div>
-      <div class="rec-time" id="recTime">00:00</div>
-    </div>
+  <div class="top-bar">
+    <button class="ibtn" onclick="goEdit()">←</button>
+    <span style="font-size:13px;color:#aaa;" id="status">停止中</span>
     <button class="ibtn" onclick="resetScroll()">↺</button>
   </div>
 
-  <div class="p-bot">
-    <button class="ibtn" onclick="chgPSpd(-1)">−</button>
-    <div class="spd-strip">
-      <div class="spd-val"><strong id="pSpdVal">3</strong>SPD</div>
-      <input type="range" min="1" max="10" value="3" id="pSlider" oninput="sliderSpd(this.value)">
+  <div class="bot-bar">
+    <button class="ibtn" onclick="chgPS(-1)">−</button>
+    <div class="spd">
+      <span class="spd-num" id="pSpdNum">3</span>
+      <input type="range" min="1" max="10" value="3" id="pSlider" oninput="setSpdSlider(this.value)">
     </div>
-    <button class="ibtn" onclick="chgPSpd(1)">＋</button>
-    <button class="pp-btn" id="ppBtn" onclick="togglePlay()">▶</button>
-    <button class="rec-btn" id="recBtn" onclick="toggleRec()"><div class="rec-dot"></div></button>
-  </div>
-</div>
-
-<!-- DONE -->
-<div id="doneOv">
-  <div class="done-icon">🎬</div>
-  <div class="done-title">録画完了！</div>
-  <div class="done-sub" id="doneSub">動画を保存できます</div>
-  <div class="done-acts">
-    <button class="dbtn pri" id="saveBtn" onclick="saveVid()">📥 動画を保存</button>
-    <button class="dbtn sec" onclick="contRec()">▶ 続けて録画</button>
-    <button class="dbtn sec" onclick="closeDone()">✕ 閉じる</button>
+    <button class="ibtn" onclick="chgPS(1)">＋</button>
+    <button class="pp" id="ppBtn" onclick="togglePlay()">▶</button>
   </div>
 </div>
 
 <script>
-(function(){
-'use strict';
+var spd = 3, fontSize = 30;
+var playing = false, scrollY = 0, lastTS = null, raf = null;
+var stream = null;
 
-var spd=3, fsz='medium';
-var playing=false, scrollY=0;
-var aRAF=null;
-var stream=null, mr=null;
-var chunks=[], lastBlob=null;
-var recording=false, recT0=0, recIv=null;
-var lastTS=null;
-var FS={small:'24px',medium:'32px',large:'42px',xlarge:'54px'};
-
-/* ── ストリーム解放 ── */
-function freeStream(){
-  if(!stream) return;
-  try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
-  stream=null;
-  var v=document.getElementById('camVideo');
-  try{ v.pause(); v.srcObject=null; }catch(e){}
+/* トグル見た目 */
+var camOnEl = document.getElementById('camOn');
+var togTrack = document.getElementById('togTrack');
+var togThumb = document.getElementById('togThumb');
+function updateToggle() {
+  var on = camOnEl.checked;
+  togTrack.style.background = on ? '#00e87a' : '#444';
+  togThumb.style.transform  = on ? 'translateX(21px)' : 'none';
 }
-document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='hidden') freeStream();
-});
-window.addEventListener('pagehide',    freeStream,false);
-window.addEventListener('beforeunload',freeStream,false);
+camOnEl.addEventListener('change', updateToggle);
+updateToggle();
 
-/* ── SETTINGS ── */
-window.chgSpd=function(d){
-  spd=Math.max(1,Math.min(10,spd+d));
-  document.getElementById('spdVal').textContent=spd;
-  document.getElementById('spdLabel').textContent=spd;
-};
-window.setFS=function(s,btn){
-  fsz=s;
-  document.querySelectorAll('.fsbtn').forEach(function(b){b.classList.remove('on');});
-  btn.classList.add('on');
-};
+function setFS(sz, btn) {
+  fontSize = sz;
+  document.querySelectorAll('[onclick^="setFS"]').forEach(function(b) {
+    b.style.background = '#333'; b.style.color = '#aaa'; b.style.border = '1px solid #444';
+  });
+  btn.style.background = '#00e87a'; btn.style.color = '#000'; btn.style.border = 'none';
+}
 
-/* ── START ── */
-window.startPrompter=function(){
-  var text=document.getElementById('scriptInput').value.trim();
-  if(!text){alert('台本を入力してください');return;}
+function chgSpd(d) {
+  spd = Math.max(1, Math.min(10, spd + d));
+  document.getElementById('spdLbl').textContent = spd;
+  document.getElementById('pSpdNum').textContent = spd;
+  document.getElementById('pSlider').value = spd;
+}
 
-  var d=document.getElementById('scriptDisp');
-  d.textContent=text;
-  d.style.fontSize=FS[fsz];
-  d.classList.toggle('mirror',document.getElementById('mirrorTog').checked);
+function goPrompter() {
+  var text = document.getElementById('txt').value.trim();
+  if (!text) { alert('台本を入力してください'); return; }
 
-  scrollY=0; lastTS=null;
-  document.getElementById('scrollContent').style.transform='translateY(0)';
-  document.getElementById('pSpdVal').textContent=spd;
-  document.getElementById('pSlider').value=spd;
-  playing=false;
-  var pp=document.getElementById('ppBtn');
-  pp.textContent='▶'; pp.classList.remove('playing');
+  document.getElementById('scriptText').textContent = text;
+  document.getElementById('scriptText').style.fontSize = fontSize + 'px';
 
-  document.getElementById('editScreen').classList.remove('active');
-  document.getElementById('prompterScreen').classList.add('active');
+  /* 画面切り替え */
+  document.getElementById('editScreen').style.display = 'none';
+  document.getElementById('prompterScreen').style.display = 'flex';
 
-  if(document.getElementById('camTog').checked){
-    initCam();
+  scrollY = 0; lastTS = null;
+  document.getElementById('content').style.transform = 'translateY(0)';
+  playing = false;
+  document.getElementById('ppBtn').textContent = '▶';
+  document.getElementById('ppBtn').className = 'pp';
+  document.getElementById('status').textContent = '停止中';
+
+  if (camOnEl.checked) {
+    startCam();
   } else {
-    document.getElementById('camVideo').style.display='none';
-    document.getElementById('noCamBg').style.display='block';
+    document.getElementById('camVideo').style.display = 'none';
   }
-};
+}
 
-/* ── CAMERA ──
-   video要素をdisplay:blockで実際に画面に描画する。
-   object-fit:cover + scaleX(-1)で全画面ミラー表示。
-*/
-function initCam(){
-  var vid=document.getElementById('camVideo');
-  var noBg=document.getElementById('noCamBg');
-
-  /* まず表示しておく（iOSはレンダリングされている要素でないと再生しない） */
-  vid.style.display='block';
-  noBg.style.display='none';
+function startCam() {
+  var vid = document.getElementById('camVideo');
+  vid.style.display = 'block';
 
   navigator.mediaDevices.getUserMedia({
-    video:{facingMode:'user', width:{ideal:1280}, height:{ideal:720}},
-    audio:true
-  }).then(function(s){
-    stream=s;
-    vid.srcObject=s;
-    /* loadeddata後にplay()する */
-    vid.onloadeddata=function(){
-      var p=vid.play();
-      if(p && p.catch) p.catch(function(e){
-        /* autoplay blocked → ユーザータッチで再試行 */
-        document.addEventListener('touchstart',function retry(){
-          vid.play().catch(function(){});
-          document.removeEventListener('touchstart',retry);
-        },{once:true});
-      });
+    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+    audio: true
+  }).then(function(s) {
+    stream = s;
+    vid.srcObject = s;
+    vid.onloadeddata = function() {
+      vid.play().catch(function() {});
     };
     vid.load();
-  }).catch(function(e){
-    vid.style.display='none';
-    noBg.style.display='block';
-    toast(e.name==='NotAllowedError'
-      ? 'カメラ・マイクの許可が必要です。\nSafari設定でカメラとマイクを「許可」にしてください。'
-      : 'カメラを起動できませんでした。\nカメラなしで続行します。');
+  }).catch(function(e) {
+    vid.style.display = 'none';
+    alert('カメラエラー: ' + e.name + '\n' + e.message);
   });
 }
 
-function stopCam(){
-  var vid=document.getElementById('camVideo');
-  vid.style.display='none';
-  freeStream();
+function stopCam() {
+  if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
+  var vid = document.getElementById('camVideo');
+  try { vid.pause(); vid.srcObject = null; } catch(e) {}
+  vid.style.display = 'none';
 }
 
-/* ── SCROLL ── */
-window.togglePlay=function(){
-  playing=!playing;
-  var btn=document.getElementById('ppBtn');
-  btn.textContent=playing?'⏸':'▶';
-  btn.classList.toggle('playing',playing);
-  if(playing){lastTS=null;aRAF=requestAnimationFrame(animate);}
-  else cancelAnimationFrame(aRAF);
-};
-function animate(ts){
-  if(!playing)return;
-  if(!lastTS)lastTS=ts;
-  var dt=ts-lastTS;lastTS=ts;
-  scrollY+=spd*35*dt/1000;
-  var content=document.getElementById('scrollContent');
-  var mask=document.getElementById('scrollMask');
-  var max=content.scrollHeight-mask.clientHeight;
-  if(scrollY>=max){
-    scrollY=max;playing=false;
-    document.getElementById('ppBtn').textContent='▶';
-    document.getElementById('ppBtn').classList.remove('playing');
-  }
-  content.style.transform='translateY(-'+scrollY+'px)';
-  aRAF=requestAnimationFrame(animate);
-}
-window.resetScroll=function(){
-  scrollY=0;lastTS=null;
-  document.getElementById('scrollContent').style.transform='translateY(0)';
-};
-window.chgPSpd=function(d){
-  spd=Math.max(1,Math.min(10,spd+d));
-  document.getElementById('pSpdVal').textContent=spd;
-  document.getElementById('pSlider').value=spd;
-};
-window.sliderSpd=function(v){
-  spd=+v;
-  document.getElementById('pSpdVal').textContent=spd;
-};
-
-/* ── RECORDING ── */
-function bestMime(){
-  var list=['video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm'];
-  for(var i=0;i<list.length;i++){
-    try{if(MediaRecorder.isTypeSupported(list[i]))return list[i];}catch(e){}
-  }
-  return '';
-}
-window.toggleRec=function(){recording?stopRec():startRec();};
-function startRec(){
-  if(!stream){toast('カメラが起動していないため録画できません。');return;}
-  if(typeof MediaRecorder==='undefined'){toast('このブラウザはMediaRecorderに未対応です。');return;}
-  chunks=[];
-  var mime=bestMime();
-  try{mr=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream);}
-  catch(e){toast('録画開始エラー: '+e.message);return;}
-  mr.ondataavailable=function(e){if(e.data&&e.data.size>0)chunks.push(e.data);};
-  mr.onstop=function(){
-    var usedMime=mr.mimeType||'video/webm';
-    lastBlob=new Blob(chunks,{type:usedMime});
-    document.getElementById('saveBtn').dataset.ext=usedMime.indexOf('mp4')>=0?'mp4':'webm';
-    document.getElementById('doneSub').textContent='ファイルサイズ: '+(lastBlob.size/1024/1024).toFixed(1)+' MB';
-    document.getElementById('doneOv').classList.add('on');
-  };
-  mr.start(500);
-  recording=true;recT0=Date.now();
-  document.getElementById('recBtn').classList.add('recording');
-  document.getElementById('recInd').classList.add('on');
-  recIv=setInterval(function(){
-    var s=Math.floor((Date.now()-recT0)/1000);
-    document.getElementById('recTime').textContent=pad(Math.floor(s/60))+':'+pad(s%60);
-  },500);
-}
-function stopRec(){
-  if(!mr||!recording)return;
-  mr.stop();recording=false;
-  document.getElementById('recBtn').classList.remove('recording');
-  document.getElementById('recInd').classList.remove('on');
-  clearInterval(recIv);
-  document.getElementById('recTime').textContent='00:00';
-}
-window.saveVid=function(){
-  if(!lastBlob)return;
-  var ext=document.getElementById('saveBtn').dataset.ext||'webm';
-  var url=URL.createObjectURL(lastBlob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download='teleprompter_'+new Date().toISOString().slice(0,16).replace(/[T:]/g,'-')+'.'+ext;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  setTimeout(function(){URL.revokeObjectURL(url);},10000);
-};
-window.contRec=function(){document.getElementById('doneOv').classList.remove('on');lastBlob=null;};
-window.closeDone=function(){document.getElementById('doneOv').classList.remove('on');};
-
-/* ── EXIT ── */
-window.exitPrompter=function(){
-  if(recording)stopRec();
-  playing=false;cancelAnimationFrame(aRAF);
+function goEdit() {
+  playing = false;
+  if (raf) { cancelAnimationFrame(raf); raf = null; }
   stopCam();
-  document.getElementById('noCamBg').style.display='block';
-  document.getElementById('prompterScreen').classList.remove('active');
-  document.getElementById('editScreen').classList.add('active');
-  document.getElementById('doneOv').classList.remove('on');
-};
-
-/* ── 手動スクロール ── */
-var ty0=0,sy0=0;
-document.getElementById('scrollMask').addEventListener('touchstart',function(e){
-  ty0=e.touches[0].clientY;sy0=scrollY;
-},{passive:true});
-document.getElementById('scrollMask').addEventListener('touchmove',function(e){
-  if(playing)return;
-  var content=document.getElementById('scrollContent');
-  var mask=document.getElementById('scrollMask');
-  var max=content.scrollHeight-mask.clientHeight;
-  scrollY=Math.max(0,Math.min(max,sy0+(ty0-e.touches[0].clientY)));
-  content.style.transform='translateY(-'+scrollY+'px)';
-},{passive:true});
-
-/* ── UTILS ── */
-function pad(n){return String(n).padStart(2,'0');}
-function toast(msg){
-  var el=document.createElement('div');
-  el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:300;background:rgba(0,0,0,.92);color:#fff;padding:20px 22px;border-radius:14px;text-align:center;font-size:14px;line-height:1.7;white-space:pre-line;max-width:84%;border:1px solid #444;font-family:-apple-system,sans-serif;';
-  el.textContent=msg;
-  document.body.appendChild(el);
-  setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},5000);
+  document.getElementById('prompterScreen').style.display = 'none';
+  document.getElementById('editScreen').style.display = 'flex';
 }
 
-})();
+/* Scroll */
+function togglePlay() {
+  playing = !playing;
+  var btn = document.getElementById('ppBtn');
+  btn.textContent = playing ? '⏸' : '▶';
+  btn.className = playing ? 'pp playing' : 'pp';
+  document.getElementById('status').textContent = playing ? '再生中' : '停止中';
+  if (playing) { lastTS = null; raf = requestAnimationFrame(animate); }
+  else { cancelAnimationFrame(raf); raf = null; }
+}
+
+function animate(ts) {
+  if (!playing) return;
+  if (!lastTS) lastTS = ts;
+  var dt = ts - lastTS; lastTS = ts;
+  scrollY += spd * 35 * dt / 1000;
+  var content = document.getElementById('content');
+  var mask    = document.getElementById('mask');
+  var max     = content.scrollHeight - mask.clientHeight;
+  if (scrollY >= max) { scrollY = max; playing = false; document.getElementById('ppBtn').textContent = '▶'; document.getElementById('ppBtn').className = 'pp'; }
+  content.style.transform = 'translateY(-' + scrollY + 'px)';
+  raf = requestAnimationFrame(animate);
+}
+
+function resetScroll() { scrollY = 0; lastTS = null; document.getElementById('content').style.transform = 'translateY(0)'; }
+
+function chgPS(d) {
+  spd = Math.max(1, Math.min(10, spd + d));
+  document.getElementById('pSpdNum').textContent = spd;
+  document.getElementById('pSlider').value = spd;
+}
+function setSpdSlider(v) { spd = +v; document.getElementById('pSpdNum').textContent = spd; }
+
+/* ストリーム解放 */
+document.addEventListener('visibilitychange', function() { if (document.visibilityState === 'hidden') stopCam(); });
+window.addEventListener('pagehide', stopCam);
 </script>
 </body>
 </html>
