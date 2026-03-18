@@ -122,13 +122,13 @@ textarea::placeholder { color: #555; }
 .bot-bar {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
   padding: 10px 14px max(14px, env(safe-area-inset-bottom));
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
   background: linear-gradient(to top, rgba(0,0,0,.7), transparent);
 }
 
 .ibtn {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(0,0,0,.55); color: #fff; font-size: 18px;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(0,0,0,.55); color: #fff; font-size: 16px;
   border: 1.5px solid rgba(255,255,255,.25); cursor: pointer;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
@@ -148,7 +148,7 @@ textarea::placeholder { color: #555; }
   -webkit-appearance: none; flex: 1; height: 4px;
   background: rgba(255,255,255,.2); border-radius: 2px; outline: none;
 }
-#pSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #00e87a; }
+#pSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #00e87a; }
 
 /* play button */
 .pp-btn {
@@ -420,8 +420,9 @@ function animate(ts) {
   if (!playing) return;
   if (!lastTS) lastTS = ts;
   var dt = ts - lastTS; lastTS = ts;
-  /* 速度: spd * 10 px/s */
-  scrollY += spd * 10 * dt / 1000;
+  /* 速度: 等比数列 10 * 1.4^(spd-1) px/s */
+  var pxPerSec = 10 * Math.pow(1.4, spd - 1);
+  scrollY += pxPerSec * dt / 1000;
   var content = document.getElementById('content');
   var mask    = document.getElementById('mask');
   var max     = content.scrollHeight - mask.clientHeight;
