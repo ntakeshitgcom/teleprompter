@@ -223,6 +223,8 @@
     opacity: 0;
     transition: opacity 0.4s;
     transform: scaleX(-1); /* mirror for selfie */
+    /* iPhone Safari 必須 */
+    -webkit-transform: scaleX(-1);
   }
   #cameraView.active { opacity: 1; }
 
@@ -560,7 +562,7 @@
 
 <!-- ===== PROMPTER SCREEN ===== -->
 <div id="prompterScreen" class="screen">
-  <video id="cameraView" autoplay muted playsinline></video>
+  <video id="cameraView" playsinline webkit-playsinline muted autoplay></video>
   <div class="no-camera-bg" id="noCameraBg"></div>
   <div class="camera-overlay"></div>
   <div class="focus-line"></div>
@@ -686,19 +688,67 @@ async function startPrompter() {
 
 async function initCamera() {
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } },
+    // iPhone Safari: audioの要求はマイクも許可させるため含める
+    const constraints = {
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
       audio: true
-    });
+    };
+    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+
     const video = document.getElementById('cameraView');
+    // iPhone Safari では srcObject 設定後に明示的に load() & play() が必要
     video.srcObject = mediaStream;
-    video.classList.add('active');
-    document.getElementById('noCameraBg').style.display = 'none';
+    video.load();
+
+    // play() は Promise を返す。catch しないと Uncaught エラーになる
+    try {
+      await video.play();
+    } catch(playErr) {
+      console.warn('autoplay blocked, retrying on user gesture:', playErr);
+      // ユーザーインタラクション後に再試行
+      const retry = () => { video.play().catch(()=>{}); document.removeEventListener('touchstart', retry); };
+      document.addEventListener('touchstart', retry, { once: true });
+    }
+
+    video.onloadedmetadata = () => {
+      video.classList.add('active');
+      document.getElementById('noCameraBg').style.display = 'none';
+    };
+
+    // フォールバック: metadata が来なくても一定時間後に表示
+    setTimeout(() => {
+      if (video.readyState >= 1) {
+        video.classList.add('active');
+        document.getElementById('noCameraBg').style.display = 'none';
+      }
+    }, 1500);
+
   } catch(e) {
-    console.log('Camera unavailable:', e);
+    console.log('Camera error:', e.name, e.message);
     document.getElementById('cameraView').classList.remove('active');
     document.getElementById('noCameraBg').style.display = 'block';
+
+    // エラー種別を日本語でユーザーに伝える
+    if (e.name === 'NotAllowedError') {
+      showCameraError('カメラ・マイクの許可が必要です。\nSafari設定 → このWebサイト → カメラ＆マイクを「許可」にしてください。');
+    } else if (e.name === 'NotFoundError') {
+      showCameraError('カメラが見つかりません。');
+    } else {
+      showCameraError(`カメラエラー: ${e.message}`);
+    }
   }
+}
+
+function showCameraError(msg) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;background:rgba(0,0,0,0.8);color:#fff;padding:20px;border-radius:12px;text-align:center;font-size:14px;line-height:1.6;white-space:pre-line;max-width:80%;';
+  el.textContent = msg;
+  document.getElementById('prompterScreen').appendChild(el);
+  setTimeout(() => el.remove(), 6000);
 }
 
 // ===== SCROLL =====
