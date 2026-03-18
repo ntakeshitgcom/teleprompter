@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>カメラテスト</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #111; color: #fff; font-family: -apple-system, sans-serif; padding: 20px; }
+h2 { font-size: 16px; margin-bottom: 12px; color: #0f0; }
+button {
+  display: block; width: 100%; padding: 16px;
+  margin-bottom: 12px; border: none; border-radius: 10px;
+  background: #333; color: #fff; font-size: 16px; cursor: pointer;
+}
+button:active { background: #555; }
+#log {
+  background: #000; border: 1px solid #333; border-radius: 8px;
+  padding: 12px; font-size: 12px; font-family: monospace;
+  min-height: 120px; white-space: pre-wrap; word-break: break-all;
+  margin-bottom: 12px; color: #0f0;
+}
+video {
+  width: 100%; border-radius: 8px; border: 2px solid #0f0;
+  background: #000; display: block; margin-bottom: 12px;
+}
+canvas {
+  width: 100%; border-radius: 8px; border: 2px solid #00f;
+  background: #000; display: block;
+}
+</style>
+</head>
+<body>
+<h2>📷 iOS Safariカメラ診断</h2>
+<div id="log">ログ: 待機中...\n</div>
+
+<button onclick="test1()">① getUserMedia だけ取得（映像なし）</button>
+<button onclick="test2()">② video要素に表示</button>
+<button onclick="test3()">③ canvasに描画</button>
+<button onclick="stopAll()">■ 停止・リセット</button>
+
+<p style="font-size:12px;color:#888;margin-bottom:8px;">video要素:</p>
+<video id="vid" playsinline webkit-playsinline muted autoplay></video>
+
+<p style="font-size:12px;color:#888;margin-bottom:8px;">canvas描画:</p>
+<canvas id="cvs" width="640" height="360"></canvas>
+
+<script>
+var log = document.getElementById('log');
+var vid = document.getElementById('vid');
+var cvs = document.getElementById('cvs');
+var ctx = cvs.getContext('2d');
+var stream = null;
+var raf = null;
+
+function lg(msg) {
+  log.textContent += new Date().toLocaleTimeString() + ' ' + msg + '\n';
+  log.scrollTop = log.scrollHeight;
+}
+
+function stopAll() {
+  if (raf) { cancelAnimationFrame(raf); raf = null; }
+  if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+  vid.srcObject = null;
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+  lg('--- 停止 ---');
+}
+
+// テスト1: getUserMediaだけ
+window.test1 = function() {
+  stopAll();
+  lg('test1: getUserMedia 開始...');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio: false })
+    .then(function(s) {
+      stream = s;
+      var tracks = s.getVideoTracks();
+      lg('✅ 取得成功！ videoTracks=' + tracks.length);
+      if (tracks.length > 0) lg('  track: ' + tracks[0].label + ' / state=' + tracks[0].readyState);
+    })
+    .catch(function(e) {
+      lg('❌ エラー: ' + e.name + ' / ' + e.message);
+    });
+};
+
+// テスト2: video要素に表示
+window.test2 = function() {
+  stopAll();
+  lg('test2: video要素への表示...');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio: false })
+    .then(function(s) {
+      stream = s;
+      lg('✅ stream取得');
+      vid.srcObject = s;
+      lg('srcObject設定完了');
+      vid.onloadedmetadata = function() {
+        lg('✅ loadedmetadata! videoWidth=' + vid.videoWidth + ' h=' + vid.videoHeight);
+      };
+      vid.onloadeddata = function() {
+        lg('✅ loadeddata! readyState=' + vid.readyState);
+      };
+      vid.onplaying = function() {
+        lg('✅ playing!');
+      };
+      vid.onerror = function(e) {
+        lg('❌ video error: ' + JSON.stringify(e));
+      };
+      var p = vid.play();
+      if (p) {
+        p.then(function(){ lg('✅ play() resolved'); })
+         .catch(function(e){ lg('⚠️ play() rejected: ' + e.message); });
+      }
+      // 3秒後に状態確認
+      setTimeout(function(){
+        lg('3秒後 readyState=' + vid.readyState + ' videoWidth=' + vid.videoWidth + ' paused=' + vid.paused);
+      }, 3000);
+    })
+    .catch(function(e) {
+      lg('❌ エラー: ' + e.name + ' / ' + e.message);
+    });
+};
+
+// テスト3: canvasに描画
+window.test3 = function() {
+  stopAll();
+  lg('test3: canvas描画...');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode:'user' }, audio: false })
+    .then(function(s) {
+      stream = s;
+      lg('✅ stream取得');
+      var v2 = document.createElement('video');
+      v2.playsInline = true;
+      v2.setAttribute('playsinline', '');
+      v2.setAttribute('webkit-playsinline', '');
+      v2.muted = true;
+      v2.srcObject = s;
+      var p = v2.play();
+      if (p) p.catch(function(e){ lg('⚠️ v2.play(): ' + e.message); });
+
+      var drawn = 0;
+      function draw() {
+        raf = requestAnimationFrame(draw);
+        if (v2.readyState >= 2 && v2.videoWidth > 0) {
+          cvs.width  = cvs.offsetWidth  * (window.devicePixelRatio||1);
+          cvs.height = cvs.offsetHeight * (window.devicePixelRatio||1);
+          ctx.drawImage(v2, 0, 0, cvs.width, cvs.height);
+          drawn++;
+          if (drawn === 1) lg('✅ 初回描画成功！ vw=' + v2.videoWidth + ' vh=' + v2.videoHeight);
+        } else if (drawn === 0) {
+          // 読み込み待ち表示
+          ctx.fillStyle = '#222';
+          ctx.fillRect(0,0,cvs.width,cvs.height);
+          ctx.fillStyle = '#0f0';
+          ctx.font = '14px monospace';
+          ctx.fillText('readyState=' + v2.readyState + ' vw=' + v2.videoWidth, 10, 30);
+        }
+      }
+      draw();
+      lg('描画ループ開始...');
+      setTimeout(function(){
+        lg('5秒後: readyState=' + v2.readyState + ' vw=' + v2.videoWidth + ' drawn=' + drawn);
+      }, 5000);
+    })
+    .catch(function(e) {
+      lg('❌ エラー: ' + e.name + ' / ' + e.message);
+    });
+};
+</script>
+</body>
+</html>
