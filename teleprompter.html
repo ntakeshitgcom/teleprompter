@@ -23,7 +23,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-sy
 }
 h1 { font-size: 18px; color: #00e87a; letter-spacing: .05em; }
 textarea {
-  width: 100%; height: 160px;
+  width: 100%; height: 160px; min-height: 80px;
   background: #1e1e1e; border: 1px solid #444; border-radius: 10px;
   color: #fff; font-size: 16px; padding: 12px; resize: none;
   font-family: inherit; line-height: 1.6;
@@ -191,6 +191,11 @@ textarea::placeholder { color: #555; }
 @media (orientation: landscape) {
   #panel { top: 8px; bottom: 8px; left: 58px; right: 58px; }
 
+  /* 編集画面: textareaを3行分確保、設定カードを締める */
+  textarea { height: auto !important; min-height: 80px !important; }
+  .setting-card { padding: 8px 12px; }
+  #editScreen { gap: 8px; }
+
   /* 左カラム: 戻る・REC表示・リセット */
   .top-bar {
     height: 100%; width: 58px; top: 0; left: 0; right: auto; bottom: 0;
@@ -221,6 +226,9 @@ textarea::placeholder { color: #555; }
 
   .spd-row { flex-direction: column; flex: 1; min-height: 0; gap: 4px; }
   #pSlider { writing-mode: vertical-lr; direction: rtl; width: 4px; height: auto; flex: 1; min-height: 0; }
+
+  /* 横向き時は台本フォントを小さく */
+  #scriptText { font-size: 18px !important; line-height: 1.6 !important; }
 }
 
 ::-webkit-scrollbar { display: none; }
@@ -230,7 +238,10 @@ textarea::placeholder { color: #555; }
 
 <!-- ════ EDIT ════ -->
 <div id="editScreen">
-  <h1>📽 テレプロンプター</h1>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <h1>📽 テレプロンプター</h1>
+    <button id="infoBtn" onclick="toggleNotice()" style="width:24px;height:24px;border-radius:50%;border:1.5px solid #00e87a;background:transparent;color:#00e87a;font-size:13px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;">i</button>
+  </div>
 
   <textarea id="txt" placeholder="ここに台本を入力してください。&#10;&#10;例：みなさん、こんにちは！&#10;今日は〇〇についてお話しします。"></textarea>
 
@@ -365,7 +376,6 @@ window.goPrompter = function () {
   if (!text) { alert('台本を入力してください'); return; }
 
   document.getElementById('scriptText').textContent = text;
-  document.getElementById('scriptText').style.fontSize = fontSize + 'px';
   document.getElementById('scriptText').className =
     document.getElementById('mirrorOn').checked ? 'mirror' : '';
 
@@ -379,6 +389,11 @@ window.goPrompter = function () {
 
   document.getElementById('editScreen').style.display = 'none';
   document.getElementById('prompterScreen').style.display = 'flex';
+
+  // 初回サイズ適用＋回転時に再調整
+  applyScriptFontSize();
+  window.addEventListener('resize', applyScriptFontSize);
+  window.addEventListener('orientationchange', function(){ setTimeout(applyScriptFontSize, 150); });
 
   if (document.getElementById('camOn').checked) {
     startCam();
@@ -570,6 +585,16 @@ document.getElementById('mask').addEventListener('touchmove', function (e) {
   content.style.transform = 'translateY(-' + scrollY + 'px)';
 }, { passive: true });
 
+function applyScriptFontSize() {
+  var isLandscape = window.innerWidth > window.innerHeight;
+  var size = isLandscape ? Math.round(fontSize * 0.6) : fontSize;
+  var el = document.getElementById('scriptText');
+  if (el) {
+    el.style.fontSize  = size + 'px';
+    el.style.lineHeight = isLandscape ? '1.55' : '1.8';
+  }
+}
+
 function pad(n) { return String(n).padStart(2, '0'); }
 
 })();
@@ -581,28 +606,52 @@ function pad(n) { return String(n).padStart(2, '0'); }
   var isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent);
   var isAndroid = /Android/.test(navigator.userAgent);
 
-  // ── 注意書きバナーをh1の直後に挿入 ──
-  var h1 = document.querySelector('#editScreen h1');
-  var notice = document.createElement('div');
-  notice.style.cssText = 'border-radius:10px;padding:11px 14px;font-size:12px;line-height:1.8;margin-top:4px;';
-
   var mimeNote, bgColor, borderColor, textColor;
-
   if (isIOS) {
-    mimeNote    = '📱 iOS Safari：録画ファイルは <strong>MP4</strong> で保存されます。';
-    bgColor     = '#0d1f12'; borderColor = '#1e5c30'; textColor = '#5dd888';
+    mimeNote = '📱 iOS Safari：録画ファイルは <strong>MP4</strong> で保存されます。';
+    bgColor = '#0d1f12'; borderColor = '#1e5c30'; textColor = '#5dd888';
   } else if (isAndroid) {
-    mimeNote    = '🤖 Android Chrome：録画ファイルは <strong>WebM</strong> で保存されます。<br>再生にはVLC等が必要な場合があります。';
-    bgColor     = '#0d1520'; borderColor = '#1e3d5c'; textColor = '#5ab4dd';
+    mimeNote = '🤖 Android：録画ファイルは <strong>WebM</strong> で保存されます。VLC等が必要な場合があります。';
+    bgColor = '#0d1520'; borderColor = '#1e3d5c'; textColor = '#5ab4dd';
   } else {
-    mimeNote    = '💻 PC ブラウザ：録画ファイルは <strong>WebM</strong> で保存されます。';
-    bgColor     = '#0d1520'; borderColor = '#1e3d5c'; textColor = '#5ab4dd';
+    mimeNote = '💻 PC：録画ファイルは <strong>WebM</strong> で保存されます。';
+    bgColor = '#0d1520'; borderColor = '#1e3d5c'; textColor = '#5ab4dd';
   }
+  var permNote = '⚠️ カメラ・マイクの許可が必要です。Safari／Chromeの設定をご確認ください。';
+  var fullHTML = mimeNote + '<br>' + permNote;
 
-  notice.style.background   = bgColor;
-  notice.style.border       = '1px solid ' + borderColor;
-  notice.style.color        = textColor;
-  notice.innerHTML          = mimeNote + '<br>⚠️ カメラ・マイクの許可が必要です。Safari／Chromeの設定をご確認ください。';
-  h1.parentNode.insertBefore(notice, h1.nextSibling);
+  // noticeパネルを生成してiボタンの直後に挿入
+  var notice = document.createElement('div');
+  notice.id = 'noticePanel';
+  notice.style.cssText = [
+    'border-radius:10px',
+    'padding:10px 14px',
+    'font-size:12px',
+    'line-height:1.7',
+    'background:' + bgColor,
+    'border:1px solid ' + borderColor,
+    'color:' + textColor,
+    'display:none',           // 最初は非表示
+    'position:relative',
+  ].join(';');
+
+  // 閉じるボタン付きのコンテンツ
+  notice.innerHTML =
+    '<button onclick="toggleNotice()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:' + textColor + ';font-size:16px;cursor:pointer;line-height:1;padding:0;">✕</button>' +
+    '<div style="padding-right:20px;">' + fullHTML + '</div>';
+
+  // iボタンの親divの直後に挿入
+  var headerDiv = document.getElementById('infoBtn').parentNode;
+  headerDiv.parentNode.insertBefore(notice, headerDiv.nextSibling);
+
+  // トグル関数をグローバルに公開
+  window.toggleNotice = function() {
+    var panel = document.getElementById('noticePanel');
+    var btn   = document.getElementById('infoBtn');
+    var open  = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    btn.style.background    = open ? '#00e87a' : 'transparent';
+    btn.style.color         = open ? '#000'    : '#00e87a';
+  };
 })();
 </script>
