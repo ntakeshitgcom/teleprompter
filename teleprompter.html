@@ -3,148 +3,264 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>テレプロンプター</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, sans-serif; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, 'Hiragino Sans', sans-serif; }
 
-/* 画面切り替えはシンプルにvisibilityで */
+/* ════ EDIT ════ */
 #editScreen {
   position: fixed; inset: 0;
-  background: #111;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
+  background: #111; color: #fff;
+  display: flex; flex-direction: column;
   padding: 20px;
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
   gap: 12px;
   overflow-y: auto;
 }
+h1 { font-size: 18px; color: #00e87a; letter-spacing: .05em; }
+textarea {
+  width: 100%; height: 160px;
+  background: #1e1e1e; border: 1px solid #444; border-radius: 10px;
+  color: #fff; font-size: 16px; padding: 12px; resize: none;
+  font-family: inherit; line-height: 1.6;
+}
+textarea::placeholder { color: #555; }
+
+.setting-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #1e1e1e; border: 1px solid #333;
+  border-radius: 10px; padding: 12px 14px;
+}
+.setting-card span { font-size: 13px; color: #ccc; }
+.setting-card .val  { color: #00e87a; font-weight: bold; }
+
+.fs-btns { display: flex; gap: 6px; }
+.fs-btn {
+  padding: 7px 11px; border-radius: 7px; border: 1px solid #444;
+  background: #2a2a2a; color: #888; font-size: 12px; cursor: pointer;
+}
+.fs-btn.sel { background: #00e87a; color: #000; border-color: #00e87a; }
+
+.spd-ctrl { display: flex; align-items: center; gap: 10px; }
+.ci { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #555; background: #2a2a2a; color: #fff; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ci:active { background: #00e87a; color: #000; }
+
+/* toggle */
+.tog-wrap { position: relative; width: 48px; height: 27px; flex-shrink: 0; cursor: pointer; }
+.tog-wrap input { opacity: 0; width: 0; height: 0; position: absolute; }
+.tog-track { position: absolute; inset: 0; background: #444; border-radius: 14px; transition: background .2s; }
+.tog-wrap input:checked ~ .tog-track { background: #00e87a; }
+.tog-thumb { position: absolute; left: 3px; top: 3px; width: 21px; height: 21px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); transition: transform .2s; }
+.tog-wrap input:checked ~ .tog-thumb { transform: translateX(21px); }
+
+.btn-start {
+  padding: 15px; border-radius: 12px; border: none;
+  background: #00e87a; color: #000; font-size: 16px; font-weight: bold;
+  cursor: pointer; letter-spacing: .04em;
+}
+.btn-start:active { opacity: .8; }
+
+/* ════ PROMPTER ════ */
 #prompterScreen {
   position: fixed; inset: 0;
-  background: #000;
-  color: #fff;
-  display: none; /* JSでflexに切り替え */
+  background: #111;
+  display: none;
   flex-direction: column;
 }
 
-/* Edit */
-h1 { font-size: 18px; color: #00e87a; }
-textarea {
-  width: 100%; height: 160px;
-  background: #222; border: 1px solid #444; border-radius: 8px;
-  color: #fff; font-size: 16px; padding: 12px;
-  resize: none;
-}
-button {
-  padding: 14px; border-radius: 10px; border: none;
-  font-size: 16px; font-weight: bold; cursor: pointer;
-}
-.btn-start { background: #00e87a; color: #000; }
-.btn-back  { background: #333; color: #fff; }
-
-/* Prompter */
-#prompterScreen { position: fixed; inset: 0; background: #111; }
-
-/* 台本パネル */
-#panel {
-  position: absolute;
-  top: 70px; bottom: 80px;
-  left: 16px; right: 16px;
-  background: rgba(0,0,0,0.7);
-  border: 1.5px solid rgba(255,255,255,0.2);
-  border-radius: 16px;
-  overflow: hidden;
-}
-#mask { position: absolute; inset: 0; overflow: hidden; }
-#content { padding: 40% 20px 60%; }
-#scriptText { font-size: 30px; line-height: 1.8; color: #fff; font-weight: bold; word-break: break-all; }
-
-/* controls */
-.top-bar {
-  position: absolute; top: 0; left: 0; right: 0;
-  height: 64px; display: flex; align-items: center;
-  justify-content: space-between; padding: 0 16px;
-  background: rgba(0,0,0,0.6);
-}
-.bot-bar {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  height: 76px; display: flex; align-items: center;
-  justify-content: space-between; padding: 0 16px; gap: 12px;
-  background: rgba(0,0,0,0.6);
-}
-.ibtn {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: #333; color: #fff; font-size: 18px;
-  border: 1px solid #555; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.pp {
-  width: 58px; height: 58px; border-radius: 50%;
-  background: rgba(0,232,122,0.15); color: #00e87a;
-  border: 2px solid #00e87a; font-size: 24px;
-  cursor: pointer; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-}
-.pp.playing { background: rgba(255,208,0,0.15); color: #ffd000; border-color: #ffd000; }
-.spd { display: flex; align-items: center; gap: 8px; flex: 1; }
-.spd input { flex: 1; height: 4px; -webkit-appearance: none; background: #444; border-radius: 2px; }
-.spd input::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #00e87a; }
-.spd-num { font-size: 13px; color: #00e87a; font-weight: bold; min-width: 20px; text-align: center; }
-
-/* Camera */
 #camVideo {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   object-fit: cover;
-  transform: scaleX(-1);
-  -webkit-transform: scaleX(-1);
-  z-index: 0;
-  background: transparent;
+  transform: scaleX(-1); -webkit-transform: scaleX(-1);
+  z-index: 0; background: transparent; display: none;
 }
-#panel { z-index: 2; }
-.top-bar { z-index: 3; }
-.bot-bar { z-index: 3; }
+
+/* 台本パネル */
+#panel {
+  position: absolute;
+  top: 64px; bottom: 80px;
+  left: 14px; right: 14px;
+  background: rgba(0,0,0,0.68);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  border-radius: 16px;
+  overflow: hidden;
+  z-index: 2;
+  /* 上下フェード */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 80%, transparent 100%);
+  mask-image:         linear-gradient(to bottom, transparent 0%, black 15%, black 80%, transparent 100%);
+}
+/* フォーカスライン */
+#panel::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 35%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,232,122,.6) 30%, rgba(0,232,122,.6) 70%, transparent);
+  z-index: 3; pointer-events: none;
+}
+#mask { position: absolute; inset: 0; overflow: hidden; z-index: 1; }
+#content { padding: 38% 22px 62%; }
+#scriptText {
+  font-size: 30px; line-height: 1.8; color: #fff; font-weight: bold;
+  word-break: break-all;
+  text-shadow: 0 1px 6px rgba(0,0,0,.9);
+}
+#scriptText.mirror { transform: scaleX(-1); }
+
+/* bars */
+.top-bar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+  height: 62px;
+  padding: max(10px, env(safe-area-inset-top)) 14px 10px;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  background: linear-gradient(to bottom, rgba(0,0,0,.7), transparent);
+}
+.bot-bar {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+  padding: 10px 14px max(14px, env(safe-area-inset-bottom));
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: linear-gradient(to top, rgba(0,0,0,.7), transparent);
+}
+
+.ibtn {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(0,0,0,.55); color: #fff; font-size: 18px;
+  border: 1.5px solid rgba(255,255,255,.25); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ibtn:active { background: rgba(255,255,255,.2); }
+
+/* REC indicator */
+.rec-ind { display: flex; align-items: center; gap: 6px; opacity: 0; transition: opacity .3s; }
+.rec-ind.on { opacity: 1; }
+.rec-dot-sm { width: 8px; height: 8px; border-radius: 50%; background: #ff2244; animation: rblink 1s infinite; }
+@keyframes rblink { 0%,100%{opacity:1}50%{opacity:0} }
+.rec-label { font-size: 13px; color: #fff; font-weight: bold; font-family: ui-monospace, monospace; }
+
+/* speed strip */
+.spd-row { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.spd-num { font-size: 14px; color: #00e87a; font-weight: bold; min-width: 20px; text-align: center; flex-shrink: 0; }
+#pSlider {
+  -webkit-appearance: none; flex: 1; height: 4px;
+  background: rgba(255,255,255,.2); border-radius: 2px; outline: none;
+}
+#pSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #00e87a; }
+
+/* play button */
+.pp-btn {
+  width: 58px; height: 58px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid #00e87a; background: rgba(0,232,122,.1); color: #00e87a;
+  font-size: 22px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.pp-btn:active { transform: scale(.92); }
+.pp-btn.playing { border-color: #ffd000; background: rgba(255,208,0,.1); color: #ffd000; }
+
+/* rec button */
+.rec-btn {
+  width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0;
+  border: 2.5px solid rgba(255,255,255,.35); background: rgba(0,0,0,.5);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.rec-inner { width: 26px; height: 26px; border-radius: 50%; background: #ff2244; box-shadow: 0 0 8px rgba(255,34,68,.5); transition: all .25s; }
+.rec-btn.on { border-color: #ff2244; }
+.rec-btn.on .rec-inner { border-radius: 5px; width: 20px; height: 20px; animation: rpulse 1s infinite; }
+@keyframes rpulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+/* ════ DONE ════ */
+#doneScreen {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(0,0,0,.9);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center; gap: 16px;
+  padding: 30px;
+}
+#doneScreen.on { display: flex; }
+.done-title { font-size: 22px; font-weight: bold; color: #00e87a; }
+.done-info  { font-size: 13px; color: #888; font-family: ui-monospace, monospace; }
+.done-btns  { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; }
+.done-btn { padding: 14px; border-radius: 11px; border: none; font-size: 15px; font-weight: bold; cursor: pointer; }
+.done-btn.pri { background: #00e87a; color: #000; }
+.done-btn.sec { background: #222; color: #fff; border: 1px solid #444; }
+
+/* ════ 横向き ════ */
+@media (orientation: landscape) {
+  #panel { top: 8px; bottom: 8px; left: 62px; right: 62px; }
+  .top-bar {
+    height: 100%; width: 62px; top: 0; left: 0; right: auto; bottom: 0;
+    flex-direction: column; justify-content: space-around; align-items: center;
+    padding: max(12px, env(safe-area-inset-top)) 10px 12px;
+    background: linear-gradient(to right, rgba(0,0,0,.6), transparent);
+  }
+  .bot-bar {
+    height: 100%; width: 62px; top: 0; right: 0; left: auto; bottom: 0;
+    flex-direction: column; justify-content: space-around; align-items: center;
+    padding: 12px 10px max(12px, env(safe-area-inset-bottom));
+    background: linear-gradient(to left, rgba(0,0,0,.6), transparent);
+  }
+  .spd-row { flex-direction: column; flex: 1; }
+  #pSlider { writing-mode: vertical-lr; direction: rtl; width: 4px; height: auto; flex: 1; }
+}
+
+::-webkit-scrollbar { display: none; }
 </style>
 </head>
 <body>
 
-<!-- EDIT -->
+<!-- ════ EDIT ════ -->
 <div id="editScreen">
   <h1>📽 テレプロンプター</h1>
-  <textarea id="txt" placeholder="台本を入力..."></textarea>
 
-  <div style="display:flex;align-items:center;justify-content:space-between;background:#222;padding:12px;border-radius:10px;">
-    <span style="font-size:13px;">文字サイズ</span>
-    <div style="display:flex;gap:6px;">
-      <button onclick="setFS(24,this)" style="padding:6px 10px;font-size:12px;background:#333;color:#aaa;border-radius:6px;border:1px solid #444;">小</button>
-      <button onclick="setFS(30,this)" style="padding:6px 10px;font-size:12px;background:#00e87a;color:#000;border-radius:6px;border:none;" id="fsDef">中</button>
-      <button onclick="setFS(38,this)" style="padding:6px 10px;font-size:12px;background:#333;color:#aaa;border-radius:6px;border:1px solid #444;">大</button>
-      <button onclick="setFS(48,this)" style="padding:6px 10px;font-size:12px;background:#333;color:#aaa;border-radius:6px;border:1px solid #444;">特大</button>
+  <textarea id="txt" placeholder="ここに台本を入力してください。&#10;&#10;例：みなさん、こんにちは！&#10;今日は〇〇についてお話しします。"></textarea>
+
+  <!-- 文字サイズ -->
+  <div class="setting-card">
+    <span>文字サイズ</span>
+    <div class="fs-btns">
+      <button class="fs-btn"     onclick="setFS(24,this)">小</button>
+      <button class="fs-btn sel" onclick="setFS(30,this)">中</button>
+      <button class="fs-btn"     onclick="setFS(38,this)">大</button>
+      <button class="fs-btn"     onclick="setFS(48,this)">特大</button>
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;justify-content:space-between;background:#222;padding:12px;border-radius:10px;">
-    <span style="font-size:13px;">スクロール速度 <span id="spdLbl" style="color:#00e87a;font-weight:bold;">3</span></span>
-    <div style="display:flex;gap:8px;">
-      <button onclick="chgSpd(-1)" style="width:36px;height:36px;border-radius:50%;background:#333;color:#fff;border:1px solid #555;font-size:20px;">−</button>
-      <button onclick="chgSpd(1)"  style="width:36px;height:36px;border-radius:50%;background:#333;color:#fff;border:1px solid #555;font-size:20px;">＋</button>
+  <!-- スクロール速度 -->
+  <div class="setting-card">
+    <span>スクロール速度 <span class="val" id="spdLbl">3</span></span>
+    <div class="spd-ctrl">
+      <button class="ci" onclick="chgSpd(-1)">−</button>
+      <button class="ci" onclick="chgSpd(1)">＋</button>
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;justify-content:space-between;background:#222;padding:12px;border-radius:10px;">
-    <span style="font-size:13px;">カメラ背景</span>
-    <label style="position:relative;width:48px;height:27px;">
-      <input type="checkbox" id="camOn" checked style="opacity:0;width:0;height:0;">
-      <span id="togTrack" style="position:absolute;inset:0;background:#00e87a;border-radius:14px;cursor:pointer;transition:background .2s;"></span>
-      <span id="togThumb" style="position:absolute;left:3px;top:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.4);"></span>
+  <!-- カメラ -->
+  <div class="setting-card">
+    <span>カメラ背景</span>
+    <label class="tog-wrap">
+      <input type="checkbox" id="camOn" checked>
+      <div class="tog-track"></div>
+      <div class="tog-thumb"></div>
+    </label>
+  </div>
+
+  <!-- ミラー -->
+  <div class="setting-card">
+    <span>ミラー反転 <span style="font-size:11px;color:#666;">（ハーフミラー用）</span></span>
+    <label class="tog-wrap">
+      <input type="checkbox" id="mirrorOn">
+      <div class="tog-track"></div>
+      <div class="tog-thumb"></div>
     </label>
   </div>
 
   <button class="btn-start" onclick="goPrompter()">▶ スタート</button>
 </div>
 
-<!-- PROMPTER -->
+<!-- ════ PROMPTER ════ -->
 <div id="prompterScreen">
   <video id="camVideo" playsinline webkit-playsinline muted autoplay></video>
 
@@ -158,149 +274,317 @@ button {
 
   <div class="top-bar">
     <button class="ibtn" onclick="goEdit()">←</button>
-    <span style="font-size:13px;color:#aaa;" id="status">停止中</span>
+    <div class="rec-ind" id="recInd">
+      <div class="rec-dot-sm"></div>
+      <span class="rec-label" id="recTime">00:00</span>
+    </div>
     <button class="ibtn" onclick="resetScroll()">↺</button>
   </div>
 
   <div class="bot-bar">
     <button class="ibtn" onclick="chgPS(-1)">−</button>
-    <div class="spd">
+    <div class="spd-row">
       <span class="spd-num" id="pSpdNum">3</span>
       <input type="range" min="1" max="10" value="3" id="pSlider" oninput="setSpdSlider(this.value)">
     </div>
     <button class="ibtn" onclick="chgPS(1)">＋</button>
-    <button class="pp" id="ppBtn" onclick="togglePlay()">▶</button>
+    <button class="pp-btn" id="ppBtn" onclick="togglePlay()">▶</button>
+    <button class="rec-btn" id="recBtn" onclick="toggleRec()"><div class="rec-inner"></div></button>
+  </div>
+</div>
+
+<!-- ════ DONE ════ -->
+<div id="doneScreen">
+  <div style="font-size:48px;">🎬</div>
+  <div class="done-title">録画完了！</div>
+  <div class="done-info" id="doneInfo">—</div>
+  <div class="done-btns">
+    <button class="done-btn pri" onclick="doSave()">📥 動画を保存</button>
+    <button class="done-btn sec" onclick="doDiscard()">✕ 破棄して閉じる</button>
   </div>
 </div>
 
 <script>
+(function () {
+'use strict';
+
+/* ── STATE ── */
 var spd = 3, fontSize = 30;
 var playing = false, scrollY = 0, lastTS = null, raf = null;
-var stream = null;
+var stream = null, mr = null, chunks = [], lastBlob = null, lastExt = 'webm';
+var recording = false, recT0 = 0, recIv = null;
 
-/* トグル見た目 */
-var camOnEl = document.getElementById('camOn');
-var togTrack = document.getElementById('togTrack');
-var togThumb = document.getElementById('togThumb');
-function updateToggle() {
-  var on = camOnEl.checked;
-  togTrack.style.background = on ? '#00e87a' : '#444';
-  togThumb.style.transform  = on ? 'translateX(21px)' : 'none';
+/* ── ストリーム解放 ── */
+function freeStream() {
+  if (!stream) return;
+  try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+  stream = null;
+  var v = document.getElementById('camVideo');
+  try { v.pause(); v.srcObject = null; } catch (e) {}
 }
-camOnEl.addEventListener('change', updateToggle);
-updateToggle();
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') freeStream();
+});
+window.addEventListener('pagehide', freeStream, false);
 
-function setFS(sz, btn) {
+/* ── FONT SIZE ── */
+window.setFS = function (sz, btn) {
   fontSize = sz;
-  document.querySelectorAll('[onclick^="setFS"]').forEach(function(b) {
-    b.style.background = '#333'; b.style.color = '#aaa'; b.style.border = '1px solid #444';
-  });
-  btn.style.background = '#00e87a'; btn.style.color = '#000'; btn.style.border = 'none';
-}
+  document.querySelectorAll('.fs-btn').forEach(function (b) { b.classList.remove('sel'); });
+  btn.classList.add('sel');
+};
 
-function chgSpd(d) {
+/* ── SPEED (edit screen) ── */
+window.chgSpd = function (d) {
   spd = Math.max(1, Math.min(10, spd + d));
   document.getElementById('spdLbl').textContent = spd;
   document.getElementById('pSpdNum').textContent = spd;
   document.getElementById('pSlider').value = spd;
-}
+};
 
-function goPrompter() {
+/* ── GO PROMPTER ── */
+window.goPrompter = function () {
   var text = document.getElementById('txt').value.trim();
   if (!text) { alert('台本を入力してください'); return; }
 
   document.getElementById('scriptText').textContent = text;
   document.getElementById('scriptText').style.fontSize = fontSize + 'px';
-
-  /* 画面切り替え */
-  document.getElementById('editScreen').style.display = 'none';
-  document.getElementById('prompterScreen').style.display = 'flex';
+  document.getElementById('scriptText').className =
+    document.getElementById('mirrorOn').checked ? 'mirror' : '';
 
   scrollY = 0; lastTS = null;
   document.getElementById('content').style.transform = 'translateY(0)';
   playing = false;
   document.getElementById('ppBtn').textContent = '▶';
-  document.getElementById('ppBtn').className = 'pp';
-  document.getElementById('status').textContent = '停止中';
+  document.getElementById('ppBtn').className = 'pp-btn';
+  document.getElementById('pSpdNum').textContent = spd;
+  document.getElementById('pSlider').value = spd;
 
-  if (camOnEl.checked) {
+  document.getElementById('editScreen').style.display = 'none';
+  document.getElementById('prompterScreen').style.display = 'flex';
+
+  if (document.getElementById('camOn').checked) {
     startCam();
   } else {
     document.getElementById('camVideo').style.display = 'none';
   }
-}
+};
 
+/* ── CAMERA ── */
 function startCam() {
   var vid = document.getElementById('camVideo');
   vid.style.display = 'block';
-
   navigator.mediaDevices.getUserMedia({
     video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
     audio: true
-  }).then(function(s) {
+  }).then(function (s) {
     stream = s;
     vid.srcObject = s;
-    vid.onloadeddata = function() {
-      vid.play().catch(function() {});
+    vid.onloadeddata = function () {
+      vid.play().catch(function () {});
     };
     vid.load();
-  }).catch(function(e) {
+  }).catch(function (e) {
     vid.style.display = 'none';
     alert('カメラエラー: ' + e.name + '\n' + e.message);
   });
 }
 
 function stopCam() {
-  if (stream) { stream.getTracks().forEach(function(t) { t.stop(); }); stream = null; }
-  var vid = document.getElementById('camVideo');
-  try { vid.pause(); vid.srcObject = null; } catch(e) {}
-  vid.style.display = 'none';
+  freeStream();
+  document.getElementById('camVideo').style.display = 'none';
 }
 
-function goEdit() {
+/* ── GO EDIT ── */
+window.goEdit = function () {
+  if (recording) stopRec();
   playing = false;
   if (raf) { cancelAnimationFrame(raf); raf = null; }
   stopCam();
   document.getElementById('prompterScreen').style.display = 'none';
   document.getElementById('editScreen').style.display = 'flex';
-}
+  document.getElementById('doneScreen').classList.remove('on');
+};
 
-/* Scroll */
-function togglePlay() {
+/* ── SCROLL ── */
+window.togglePlay = function () {
   playing = !playing;
   var btn = document.getElementById('ppBtn');
   btn.textContent = playing ? '⏸' : '▶';
-  btn.className = playing ? 'pp playing' : 'pp';
-  document.getElementById('status').textContent = playing ? '再生中' : '停止中';
+  btn.className = playing ? 'pp-btn playing' : 'pp-btn';
   if (playing) { lastTS = null; raf = requestAnimationFrame(animate); }
-  else { cancelAnimationFrame(raf); raf = null; }
-}
+  else if (raf) { cancelAnimationFrame(raf); raf = null; }
+};
 
 function animate(ts) {
   if (!playing) return;
   if (!lastTS) lastTS = ts;
   var dt = ts - lastTS; lastTS = ts;
-  scrollY += spd * 35 * dt / 1000;
+  /* 速度: spd * 17.5 px/s（元の35の半分） */
+  scrollY += spd * 17.5 * dt / 1000;
   var content = document.getElementById('content');
   var mask    = document.getElementById('mask');
   var max     = content.scrollHeight - mask.clientHeight;
-  if (scrollY >= max) { scrollY = max; playing = false; document.getElementById('ppBtn').textContent = '▶'; document.getElementById('ppBtn').className = 'pp'; }
+  if (scrollY >= max) {
+    scrollY = max; playing = false;
+    document.getElementById('ppBtn').textContent = '▶';
+    document.getElementById('ppBtn').className = 'pp-btn';
+  }
   content.style.transform = 'translateY(-' + scrollY + 'px)';
   raf = requestAnimationFrame(animate);
 }
 
-function resetScroll() { scrollY = 0; lastTS = null; document.getElementById('content').style.transform = 'translateY(0)'; }
-
-function chgPS(d) {
+window.resetScroll = function () {
+  scrollY = 0; lastTS = null;
+  document.getElementById('content').style.transform = 'translateY(0)';
+};
+window.chgPS = function (d) {
   spd = Math.max(1, Math.min(10, spd + d));
   document.getElementById('pSpdNum').textContent = spd;
   document.getElementById('pSlider').value = spd;
-}
-function setSpdSlider(v) { spd = +v; document.getElementById('pSpdNum').textContent = spd; }
+};
+window.setSpdSlider = function (v) {
+  spd = +v;
+  document.getElementById('pSpdNum').textContent = spd;
+};
 
-/* ストリーム解放 */
-document.addEventListener('visibilitychange', function() { if (document.visibilityState === 'hidden') stopCam(); });
-window.addEventListener('pagehide', stopCam);
+/* ── RECORDING ── */
+function bestMime() {
+  /* iOSはmp4を優先。PCはwebm。 */
+  var list = [
+    'video/mp4;codecs=avc1,mp4a.40.2',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ];
+  for (var i = 0; i < list.length; i++) {
+    try { if (MediaRecorder.isTypeSupported(list[i])) return list[i]; } catch (e) {}
+  }
+  return '';
+}
+
+window.toggleRec = function () { recording ? stopRec() : startRec(); };
+
+function startRec() {
+  if (!stream) {
+    alert('カメラが起動していないため録画できません。\nカメラをONにしてスタートしてください。');
+    return;
+  }
+  if (typeof MediaRecorder === 'undefined') {
+    alert('このブラウザはMediaRecorderに対応していません。');
+    return;
+  }
+  chunks = [];
+  var mime = bestMime();
+  try {
+    mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+  } catch (e) {
+    alert('録画エラー: ' + e.message);
+    return;
+  }
+
+  mr.ondataavailable = function (e) {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  };
+  mr.onstop = function () {
+    var usedMime = (mr.mimeType || mime || 'video/webm');
+    lastExt  = usedMime.indexOf('mp4') >= 0 ? 'mp4' : 'webm';
+    lastBlob = new Blob(chunks, { type: usedMime });
+    var mb   = (lastBlob.size / 1024 / 1024).toFixed(1);
+    document.getElementById('doneInfo').textContent =
+      'フォーマット: ' + lastExt.toUpperCase() + '  /  サイズ: ' + mb + ' MB';
+    document.getElementById('doneScreen').classList.add('on');
+  };
+
+  mr.start(500);
+  recording = true; recT0 = Date.now();
+  document.getElementById('recBtn').classList.add('on');
+  document.getElementById('recInd').classList.add('on');
+  recIv = setInterval(function () {
+    var s = Math.floor((Date.now() - recT0) / 1000);
+    document.getElementById('recTime').textContent =
+      pad(Math.floor(s / 60)) + ':' + pad(s % 60);
+  }, 500);
+}
+
+function stopRec() {
+  if (!mr || !recording) return;
+  mr.stop();
+  recording = false;
+  document.getElementById('recBtn').classList.remove('on');
+  document.getElementById('recInd').classList.remove('on');
+  clearInterval(recIv);
+  document.getElementById('recTime').textContent = '00:00';
+}
+
+/* ── SAVE ── */
+window.doSave = function () {
+  if (!lastBlob) return;
+  var url = URL.createObjectURL(lastBlob);
+  var ts  = new Date().toISOString().slice(0, 16).replace(/[T:]/g, '-');
+  var a   = document.createElement('a');
+  a.href  = url;
+  a.download = 'teleprompter_' + ts + '.' + lastExt;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 15000);
+  document.getElementById('doneScreen').classList.remove('on');
+};
+
+window.doDiscard = function () {
+  lastBlob = null; chunks = [];
+  document.getElementById('doneScreen').classList.remove('on');
+};
+
+/* ── 手動スクロール（停止中のみ） ── */
+var ty0 = 0, sy0 = 0;
+document.getElementById('mask').addEventListener('touchstart', function (e) {
+  ty0 = e.touches[0].clientY; sy0 = scrollY;
+}, { passive: true });
+document.getElementById('mask').addEventListener('touchmove', function (e) {
+  if (playing) return;
+  var content = document.getElementById('content');
+  var mask    = document.getElementById('mask');
+  var max     = content.scrollHeight - mask.clientHeight;
+  scrollY = Math.max(0, Math.min(max, sy0 + (ty0 - e.touches[0].clientY)));
+  content.style.transform = 'translateY(-' + scrollY + 'px)';
+}, { passive: true });
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+})();
 </script>
 </body>
 </html>
+<script>
+(function() {
+  var isIOS     = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  var isAndroid = /Android/.test(navigator.userAgent);
+
+  // ── 注意書きバナーをh1の直後に挿入 ──
+  var h1 = document.querySelector('#editScreen h1');
+  var notice = document.createElement('div');
+  notice.style.cssText = 'border-radius:10px;padding:11px 14px;font-size:12px;line-height:1.8;margin-top:4px;';
+
+  var mimeNote, bgColor, borderColor, textColor;
+
+  if (isIOS) {
+    mimeNote    = '📱 iOS Safari：録画ファイルは <strong>MP4</strong> で保存されます。';
+    bgColor     = '#0d1f12'; borderColor = '#1e5c30'; textColor = '#5dd888';
+  } else if (isAndroid) {
+    mimeNote    = '🤖 Android Chrome：録画ファイルは <strong>WebM</strong> で保存されます。<br>再生にはVLC等が必要な場合があります。';
+    bgColor     = '#0d1520'; borderColor = '#1e3d5c'; textColor = '#5ab4dd';
+  } else {
+    mimeNote    = '💻 PC ブラウザ：録画ファイルは <strong>WebM</strong> で保存されます。';
+    bgColor     = '#0d1520'; borderColor = '#1e3d5c'; textColor = '#5ab4dd';
+  }
+
+  notice.style.background   = bgColor;
+  notice.style.border       = '1px solid ' + borderColor;
+  notice.style.color        = textColor;
+  notice.innerHTML          = mimeNote + '<br>⚠️ カメラ・マイクの許可が必要です。Safari／Chromeの設定をご確認ください。';
+  h1.parentNode.insertBefore(notice, h1.nextSibling);
+})();
+</script>
