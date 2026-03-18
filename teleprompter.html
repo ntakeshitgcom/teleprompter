@@ -420,8 +420,8 @@ function animate(ts) {
   if (!playing) return;
   if (!lastTS) lastTS = ts;
   var dt = ts - lastTS; lastTS = ts;
-  /* 速度: spd * 17.5 px/s（元の35の半分） */
-  scrollY += spd * 17.5 * dt / 1000;
+  /* 速度: spd * 10 px/s */
+  scrollY += spd * 10 * dt / 1000;
   var content = document.getElementById('content');
   var mask    = document.getElementById('mask');
   var max     = content.scrollHeight - mask.clientHeight;
