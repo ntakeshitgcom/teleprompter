@@ -189,21 +189,38 @@ textarea::placeholder { color: #555; }
 
 /* ════ 横向き ════ */
 @media (orientation: landscape) {
-  #panel { top: 8px; bottom: 8px; left: 62px; right: 62px; }
+  #panel { top: 8px; bottom: 8px; left: 58px; right: 58px; }
+
+  /* 左カラム: 戻る・REC表示・リセット */
   .top-bar {
-    height: 100%; width: 62px; top: 0; left: 0; right: auto; bottom: 0;
+    height: 100%; width: 58px; top: 0; left: 0; right: auto; bottom: 0;
     flex-direction: column; justify-content: space-around; align-items: center;
-    padding: max(12px, env(safe-area-inset-top)) 10px 12px;
+    padding: max(10px, env(safe-area-inset-top)) 8px 10px;
     background: linear-gradient(to right, rgba(0,0,0,.6), transparent);
+    gap: 0;
   }
+
+  /* 右カラム: −・スライダー・＋・▶・REC */
   .bot-bar {
-    height: 100%; width: 62px; top: 0; right: 0; left: auto; bottom: 0;
+    height: 100%; width: 58px; top: 0; right: 0; left: auto; bottom: 0;
     flex-direction: column; justify-content: space-around; align-items: center;
-    padding: 12px 10px max(12px, env(safe-area-inset-bottom));
+    padding: max(10px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
     background: linear-gradient(to left, rgba(0,0,0,.6), transparent);
+    gap: 0;
   }
-  .spd-row { flex-direction: column; flex: 1; }
-  #pSlider { writing-mode: vertical-lr; direction: rtl; width: 4px; height: auto; flex: 1; }
+
+  /* 横向きではボタンを少し小さく */
+  .bot-bar .ibtn { width: 32px; height: 32px; font-size: 14px; }
+  .bot-bar .pp-btn { width: 44px; height: 44px; font-size: 18px; }
+  .bot-bar .rec-btn { width: 38px; height: 38px; }
+  .bot-bar .rec-inner { width: 20px; height: 20px; }
+  .bot-bar .rec-btn.on .rec-inner { width: 16px; height: 16px; }
+
+  /* 速度数値も小さく */
+  .bot-bar .spd-num { font-size: 12px; }
+
+  .spd-row { flex-direction: column; flex: 1; min-height: 0; gap: 4px; }
+  #pSlider { writing-mode: vertical-lr; direction: rtl; width: 4px; height: auto; flex: 1; min-height: 0; }
 }
 
 ::-webkit-scrollbar { display: none; }
