@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>派遣メンバー出退勤管理</title>
+    <style>
+        /* 基本的なスタイル */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        #app {
+            max-width: 1000px; /* 少し幅を広げました */
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        /* フォームのスタイル */
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: flex-end;
+        }
+
+        .input-item {
+            flex: 1 1 auto; /* アイテムが占めるスペースを柔軟に */
+            min-width: 120px; /* 最小幅を設定してスマホでも見やすく */
+        }
+        
+        .input-item.full-width {
+            flex-basis: 100%;
+        }
+
+        .input-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .input-item input[type="date"],
+        .input-item input[type="time"],
+        .input-item input[type="text"],
+        .input-item select,
+        .input-item input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* paddingを含めて幅を計算 */
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .input-item input:focus,
+        .input-item select:focus,
+        .input-item input[type="file"]:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            width: 100%;
+            justify-content: flex-end; /* ボタンを右寄せ */
+        }
+
+        button {
+            padding: 12px 25px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s, transform 0.2s;
+            white-space: nowrap; /* ボタン内のテキストが改行されないように */
+        }
+
+        button:hover {
+            background-color: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* 出退勤リストのスタイル */
+        #attendance-table-container {
+            overflow-x: auto; /* スマホで表がはみ出た場合にスクロール可能に */
+        }
+
+        #attendance-list {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        #attendance-list th,
+        #attendance-list td {
+            border: 1px solid #e0e0e0;
+            padding: 12px;
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        #attendance-list th {
+            background-color: #f8f8f8;
+            font-weight: bold;
+            color: #444;
+            white-space: nowrap;
+        }
+
+        #attendance-list tr:nth-child(even) {
+            background-color: #fdfdfd;
+        }
+
+        #attendance-list tr:hover {
+            background-color: #f0f0f0;
+        }
+        /* 曜日表示のスタイル */
+        .day-of-week-sun {
+            color: #e74c3c; /* 赤 */
+            font-weight: bold;
+        }
+        .day-of-week-sat {
+            color: #3498db; /* 青 */
+            font-weight: bold;
+        }
+
+        /* アラート表示のスタイル */
+        .alerts-cell {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            align-items: center;
+        }
+        .alert {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            color: white;
+            white-space: nowrap;
+        }
+
+        .alert-late { background-color: #e74c3c; } /* 赤色 */
+        .alert-overtime { background-color: #2ecc71; } /* 緑色 */
+        .alert-halfday { background-color: #f39c12; } /* オレンジ色 */
+        .alert-fullday { background-color: #9b59b6; } /* 紫色 */
+        .alert-early_departure { background-color: #5bc0de; } /* 水色 */ /* 追加 */
+
+        /* デバッグログのスタイル */
+        #debug-log {
+            background-color: #ecf0f1;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            color: #444;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap; /* 改行を保持 */
+            word-break: break-all; /* 長い単語でも折り返す */
+        }
+
+        #debug-log p {
+            margin: 0 0 5px 0;
+            padding: 0;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 600px) {
+            #app {
+                padding: 20px;
+            }
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .input-item {
+                min-width: 100%;
+            }
+            .button-group {
+                justify-content: stretch; /* スマホではボタンを横幅いっぱいに */
+            }
+            button {
+                width: 100%;
+            }
+            #attendance-list th,
+            #attendance-list td {
+                padding: 8px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>派遣メンバー出退勤管理アプリ</h1>
+
+        <section id="data-load-section">
+            <h2>データ読み込み</h2>
+            <div class="input-group">
+                <div class="input-item full-width">
+                    <label for="csvFile">FormsからダウンロードしたExcelファイルを**CSV UTF-8形式**または**テキスト(タブ区切り)形式**で保存し、そのファイルを選択してください。</label>
+                    <input type="file" id="csvFile" accept=".csv, .txt">
+                </div>
+                <div class="button-group">
+                    <button onclick="loadCsv()">データを読み込む</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="filter-section">
+            <h2>表示フィルタ</h2>
+            <div class="input-group">
+                <div class="input-item">
+                    <label for="memberFilter">担当者で絞り込む:</label>
+                    <select id="memberFilter" onchange="renderAttendanceRecords()">
+                        <option value="">全ての担当者</option>
+                        <!-- オプションはJavaScriptで動的に追加されます -->
+                    </select>
+                </div>
+                <div class="input-item">
+                    <label for="monthFilter">月で絞り込む:</label>
+                    <select id="monthFilter" onchange="renderAttendanceRecords()">
+                        <option value="">全ての月</option>
+                        <!-- オプションはJavaScriptで動的に追加されます -->
+                    </select>
+                </div>
+                <div class="button-group">
+                    <button onclick="addMissingFullDayOffs()">選択月の欠勤日を全休として追加</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="input-form">
+            <h2>新規出退勤入力</h2>
+            <div class="input-group">
+                <div class="input-item">
+                    <label for="date">日付:</label>
+                    <input type="date" id="date" aria-required="true">
+                </div>
+                <div class="input-item">
+                    <label for="name">担当者名:</label>
+                    <input type="text" id="name" placeholder="例: 山田太郎" aria-required="true">
+                </div>
+                <div class="input-item">
+                    <label for="startTime">出勤時刻:</label>
+                    <input type="time" id="startTime" value="08:45" aria-required="true">
+                </div>
+                <div class="input-item">
+                    <label for="endTime">退勤時刻:</label>
+                    <input type="time" id="endTime" value="17:30" aria-required="true">
+                </div>
+                <div class="input-item">
+                    <label for="leaveTypeManual">休暇（手動設定）:</label>
+                    <select id="leaveTypeManual">
+                        <option value="">自動判定優先</option>
+                        <option value="halfday">半休</option>
+                        <option value="fullday">全休</option>
+                    </select>
+                </div>
+                <div class="input-item full-width">
+                    <label for="notesManual">備考（手動入力）:</label>
+                    <input type="text" id="notesManual" placeholder="特記事項があれば入力">
+                </div>
+                <div class="button-group">
+                    <button onclick="addAttendance()">記録を追加</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="attendance-display">
+            <h2>出退勤記録</h2>
+            <div id="attendance-table-container">
+                <table id="attendance-list">
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>曜日</th> <!-- 曜日を追加 -->
+                            <th>名前</th>
+                            <th>出勤</th>
+                            <th>退勤</th>
+                            <th>実労働時間</th>
+                            <th>アラート</th>
+                            <th>備考</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- 記録がここに追加されます -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="debug-info">
+            <h2>デバッグログ</h2>
+            <div id="debug-log">
+                <p>アプリがロードされました。</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // グローバル変数
+        let attendanceRecords = [];
+
+        // 定時設定
+        const STANDARD_START_TIME = '08:45'; // 定時出勤時刻
+        const STANDARD_END_TIME = '17:30';   // 定時退勤時刻
+        const OVERTIME_THRESHOLD_TIME = '17:45'; // 残業とみなす開始時刻
+
+        // 遅刻許容時間 (分)
+        const LATE_GRACE_PERIOD_MINUTES = 3; 
+
+        // 休憩控除前の定時勤務時間（総経過時間）
+        const STANDARD_WORK_HOURS_NO_BREAK = (timeToMinutes(STANDARD_END_TIME)) - (timeToMinutes(STANDARD_START_TIME)); // 8時間45分 = 525分
+        // 休憩控除後の定時労働時間。8時間経過で1時間休憩の場合。
+        const STANDARD_WORK_DURATION_MINUTES = STANDARD_WORK_HOURS_NO_BREAK > 8 * 60 ? STANDARD_WORK_HOURS_NO_BREAK - 60 : STANDARD_WORK_HOURS_NO_BREAK; // 例: 8時間45分勤務で1時間休憩=7時間45分=465分
+        
+        // 半休判定の目安となる実労働時間 (分)
+        const HALF_DAY_MIN_MINUTES = 3 * 60; // 3時間
+        const HALF_DAY_MAX_MINUTES = 5 * 60; // 5時間 (実労働時間がこの範囲内であれば半休の可能性あり)
+        
+        // 午前/午後半休の判断基準時刻
+        const MORNING_BREAK_START_MINUTES = timeToMinutes('12:00'); // 昼休憩開始目安
+        const MORNING_BREAK_END_MINUTES = timeToMinutes('13:00');   // 昼休憩終了目安
+        const STANDARD_START_MINUTES = timeToMinutes(STANDARD_START_TIME);
+        const STANDARD_END_MINUTES = timeToMinutes(STANDARD_END_TIME);
+        const OVERTIME_THRESHOLD_MINUTES = timeToMinutes(OVERTIME_THRESHOLD_TIME); // 残業判定に使用する分単位の閾値
+        const FLEXIBILITY_MARGIN_MINUTES = 90; // 半休判定の柔軟性（1時間半）
+
+        // ログ出力関数
+        function log(message) {
+            const logDiv = document.getElementById('debug-log');
+            const p = document.createElement('p');
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.prepend(p); // 最新のログを上に追加
+            while (logDiv.children.length > 50) { // ログ表示数を増やす
+                logDiv.removeChild(logDiv.lastChild);
+            }
+        }
+
+        // 時間文字列を分に変換するヘルパー関数
+        function timeToMinutes(timeStr) {
+            if (!timeStr) return 0;
+            try {
+                const parts = timeStr.split(':');
+                if (parts.length < 2) throw new Error('Invalid time format, missing minutes.');
+                const hours = parseInt(parts[0], 10);
+                const minutes = parseInt(parts[1], 10);
+                if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+                    throw new Error('Invalid time value.');
+                }
+                return hours * 60 + minutes;
+            } catch (e) {
+                log(`時刻フォーマットエラー: '${timeStr}' (${e.message})。0分として処理します。`);
+                return 0;
+            }
+        }
+
+        // 分を時間文字列に変換するヘルパー関数
+        function minutesToDisplayTime(totalMinutes) {
+            if (totalMinutes < 0) return '0時間0分';
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            return `${hours}時間${minutes}分`;
+        }
+        
+        // 実労働時間（休憩控除後）を計算する関数
+        function calculateActualWorkMinutes(startTime, endTime) {
+            if (!startTime || !endTime) {
+                return 0;
+            }
+
+            const startMin = timeToMinutes(startTime);
+            const endMin = timeToMinutes(endTime);
+
+            if (endMin <= startMin) {
+                return 0; // 不正な時刻入力
+            }
+
+            let totalElapsedMinutes = endMin - startMin;
+            let deductedBreakMinutes = 0;
+
+            // 労働基準法に基づいた休憩時間 (簡易的なルール)
+            // 6時間を超える勤務で45分、8時間を超える勤務で1時間の休憩を控除
+            if (totalElapsedMinutes > 8 * 60) {
+                deductedBreakMinutes = 60; // 8時間超えで1時間
+            } else if (totalElapsedMinutes > 6 * 60) {
+                deductedBreakMinutes = 45; // 6時間超えで45分
+            }
+
+            return Math.max(0, totalElapsedMinutes - deductedBreakMinutes); // 負の値にならないように
+        }
+
+        // アラートを判定する関数
+        function getAlerts(record) {
+            const alerts = new Set(); // 重複を防ぐためSetを使用
+            
+            const recordStartTimeMinutes = record.startTime ? timeToMinutes(record.startTime) : null;
+            const recordEndTimeMinutes = record.endTime ? timeToMinutes(record.endTime) : null;
+            
+            // leaveTypeが設定されていれば、それを優先的にアラート表示
+            if (record.leaveType === 'fullday') {
+                alerts.add('fullday');
+            } else if (record.leaveType === 'halfday') {
+                alerts.add('halfday');
+            } else {
+                // 通常勤務日の遅刻・残業・早退判定
+                
+                // 遅刻判定: 定時開始 + 許容時間 を超えたら遅刻
+                if (recordStartTimeMinutes !== null && recordStartTimeMinutes > (STANDARD_START_MINUTES + LATE_GRACE_PERIOD_MINUTES)) {
+                    alerts.add('late');
+                }
+
+                // 残業判定: 17:45以降の退勤
+                if (recordEndTimeMinutes !== null && recordEndTimeMinutes >= OVERTIME_THRESHOLD_MINUTES) {
+                    alerts.add('overtime');
+                }
+
+                // 早退判定: 退勤が定時より早く、かつ実労働時間が半休の最大時間より長い場合
+                const actualWorkMinutes = calculateActualWorkMinutes(record.startTime, record.endTime);
+                if (recordEndTimeMinutes !== null && recordEndTimeMinutes < STANDARD_END_MINUTES && actualWorkMinutes > HALF_DAY_MAX_MINUTES) {
+                    alerts.add('early_departure');
+                }
+            }
+            return Array.from(alerts); // 配列に変換して返す
+        }
+        
+        // 日付文字列から日本語の曜日を取得するヘルパー関数
+        function getDayOfWeek(dateString) {
+            const days = ['日', '月', '火', '水', '木', '金', '土'];
+            const date = new Date(dateString); // YYYY-MM-DD 形式は Date オブジェクトで正しく解釈されます
+            return days[date.getDay()];
+        }
+
+
+        // レコードをテーブルに追加して表示する関数
+        function renderAttendanceRecords() {
+            const tbody = document.querySelector('#attendance-list tbody');
+            tbody.innerHTML = ''; // 一旦クリア
+
+            const selectedMember = document.getElementById('memberFilter').value;
+            const selectedMonth = document.getElementById('monthFilter').value;
+
+            let filteredRecords = attendanceRecords;
+
+            if (selectedMember) {
+                filteredRecords = filteredRecords.filter(record => record.name === selectedMember);
+            }
+            if (selectedMonth) {
+                filteredRecords = filteredRecords.filter(record => record.date.substring(0, 7) === selectedMonth); // 'YYYY-MM' 形式で比較
+            }
+
+            // 日付の昇順にソート (1日から)
+            filteredRecords.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            if (filteredRecords.length === 0) {
+                const row = tbody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 8; // 列数が増えたので変更
+                cell.textContent = '表示する記録がありません。';
+                cell.style.textAlign = 'center';
+                cell.style.padding = '20px';
+                return;
+            }
+
+            filteredRecords.forEach(record => {
+                const row = tbody.insertRow(); 
+
+                const actualWorkMinutes = calculateActualWorkMinutes(record.startTime, record.endTime);
+                const displayWorkTime = minutesToDisplayTime(actualWorkMinutes);
+                const alerts = getAlerts(record);
+                const dayOfWeek = getDayOfWeek(record.date);
+
+                row.insertCell().textContent = record.date;
+                const dayOfWeekCell = row.insertCell();
+                dayOfWeekCell.textContent = dayOfWeek;
+                if (dayOfWeek === '日') {
+                    dayOfWeekCell.classList.add('day-of-week-sun');
+                } else if (dayOfWeek === '土') {
+                    dayOfWeekCell.classList.add('day-of-week-sat');
+                }
+
+                row.insertCell().textContent = record.name;
+                row.insertCell().textContent = record.startTime;
+                row.insertCell().textContent = record.endTime;
+                row.insertCell().textContent = displayWorkTime;
+
+                const alertsCell = row.insertCell();
+                alertsCell.className = 'alerts-cell';
+                alerts.forEach(alertType => {
+                    const span = document.createElement('span');
+                    span.classList.add('alert', `alert-${alertType}`);
+                    switch (alertType) {
+                        case 'late':
+                            span.textContent = '遅刻';
+                            break;
+                        case 'overtime':
+                            span.textContent = '残業';
+                            break;
+                        case 'halfday':
+                            span.textContent = '半休';
+                            break;
+                        case 'fullday':
+                            span.textContent = '全休';
+                            break;
+                        case 'early_departure':
+                            span.textContent = '早退';
+                            break;
+                    }
+                    alertsCell.appendChild(span);
+                });
+
+                row.insertCell().textContent = record.notes;
+            });
+            log(`出退勤記録が更新されました。表示件数: ${filteredRecords.length}`);
+        }
+
+        // 担当者フィルタと月フィルタのオプションを更新する関数
+        function updateFilters() {
+            // 担当者フィルタの更新
+            const memberFilterSelect = document.getElementById('memberFilter');
+            const currentSelectedMember = memberFilterSelect.value;
+            memberFilterSelect.innerHTML = '<option value="">全ての担当者</option>';
+
+            const uniqueNames = [...new Set(attendanceRecords.map(record => record.name))].sort();
+            uniqueNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                memberFilterSelect.appendChild(option);
+            });
+            if (uniqueNames.includes(currentSelectedMember)) {
+                memberFilterSelect.value = currentSelectedMember;
+            } else {
+                memberFilterSelect.value = ''; // 存在しない場合はリセット
+            }
+            log('担当者フィルタのオプションが更新されました。');
+
+            // 月フィルタの更新
+            const monthFilterSelect = document.getElementById('monthFilter');
+            const currentSelectedMonth = monthFilterSelect.value;
+            monthFilterSelect.innerHTML = '<option value="">全ての月</option>';
+
+            const uniqueMonths = [...new Set(attendanceRecords.map(record => record.date.substring(0, 7)))];
+            // 月を降順にソート (新しい月が上に来るように)
+            uniqueMonths.sort((a, b) => b.localeCompare(a)); 
+
+            uniqueMonths.forEach(month => {
+                const option = document.createElement('option');
+                option.value = month;
+                option.textContent = month;
+                monthFilterSelect.appendChild(option);
+            });
+            if (uniqueMonths.includes(currentSelectedMonth)) {
+                monthFilterSelect.value = currentSelectedMonth;
+            } else {
+                monthFilterSelect.value = ''; // 存在しない場合はリセット
+            }
+            log('月フィルタのオプションが更新されました。');
+        }
+
+        // 新しい出退勤記録を追加する関数
+        function addAttendance() {
+            const date = document.getElementById('date').value;
+            const name = document.getElementById('name').value;
+            const startTimeInput = document.getElementById('startTime').value;
+            const endTimeInput = document.getElementById('endTime').value;
+            const leaveTypeManual = document.getElementById('leaveTypeManual').value;
+            let notesManual = document.getElementById('notesManual').value; // letに変更
+
+            if (!date || !name) {
+                alert('日付と担当者名は必須です。');
+                return;
+            }
+
+            // 手動で全休が選択された場合、時刻は空にする
+            let finalStartTime = startTimeInput;
+            let finalEndTime = endTimeInput;
+
+            if (leaveTypeManual === 'fullday') {
+                finalStartTime = '';
+                finalEndTime = '';
+                notesManual = notesManual || '全休（手動）'; // 備考が空なら自動設定
+            } else {
+                if (!finalStartTime || !finalEndTime) {
+                    alert('出勤時刻と退勤時刻は必須です（全休の場合を除く）。');
+                    return;
+                }
+                if (timeToMinutes(finalEndTime) <= timeToMinutes(finalStartTime)) {
+                    alert('退勤時刻は出勤時刻より後に設定してください。');
+                    return;
+                }
+                if (leaveTypeManual === 'halfday') {
+                    notesManual = notesManual || '半休（手動）'; // 備考が空なら自動設定
+                }
+            }
+            
+            const newRecord = {
+                date: normalizeDate(date), // 日付を正規化
+                name,
+                startTime: finalStartTime,
+                endTime: finalEndTime,
+                leaveType: leaveTypeManual, // 手動設定されたleaveTypeを優先
+                notes: notesManual // 手動設定された備考を優先
+            };
+
+            // 既存のレコードを更新するか、新規追加するかを判定
+            const existingIndex = attendanceRecords.findIndex(r => r.date === newRecord.date && r.name === name);
+            if (existingIndex !== -1) {
+                // 既存のレコードを更新（ユーザーが手動で上書きするイメージ）
+                attendanceRecords[existingIndex] = newRecord;
+                log(`既存の記録を更新しました: ${JSON.stringify(newRecord)}`);
+            } else {
+                // 新規追加
+                attendanceRecords.push(newRecord);
+                log(`新しい記録が追加されました: ${JSON.stringify(newRecord)}`);
+            }
+
+            updateFilters(); // フィルタを更新
+            renderAttendanceRecords();
+
+            // フォームをリセット (日付は今日に設定し直す)
+            document.getElementById('name').value = ''; 
+            document.getElementById('startTime').value = STANDARD_START_TIME;
+            document.getElementById('endTime').value = STANDARD_END_TIME;
+            document.getElementById('leaveTypeManual').value = '';
+            document.getElementById('notesManual').value = '';
+            document.getElementById('date').valueAsDate = new Date();
+        }
+
+        // CSVファイルを読み込む関数
+        function loadCsv() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('ファイルが選択されていません。');
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const text = e.target.result;
+                parseAndDisplayCsv(text);
+                log('ファイルが正常に読み込まれました。');
+            };
+
+            reader.onerror = function(e) {
+                log('ファイルの読み込み中にエラーが発生しました: ' + e.target.error.name);
+                alert('ファイルの読み込みに失敗しました。');
+            };
+
+            reader.readAsText(file, 'UTF-8'); // UTF-8で読み込みを試みる
+        }
+
+        // YYYY/M/D または YYYY-M-D 形式の日付文字列を YYYY-MM-DD 形式に正規化するヘルパー関数
+        function normalizeDate(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.replace(/\//g, '-').split('-'); // スラッシュをハイフンに変換し、分割
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10);
+                const day = parseInt(parts[2], 10);
+                if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+                    // ゼロ埋めして YYYY-MM-DD 形式を保証
+                    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                }
+            }
+            log(`警告: 日付の正規化に失敗しました。元の文字列: '${dateStr}'`);
+            return dateStr; // 変換失敗時は元の文字列を返す (エラーログで検知)
+        }
+
+        // CSVテキストをパースして表示する関数
+        function parseAndDisplayCsv(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim() !== '');
+            if (lines.length <= 1) { // ヘッダーのみの場合もデータなしと判断
+                log('ファイルにデータがありません。');
+                alert('ファイルにデータがありません。');
+                return;
+            }
+
+            // 区切り文字を動的に判定 (カンマまたはタブ)
+            let delimiter = ',';
+            if (lines[0].includes('\t') && !lines[0].includes(',')) {
+                delimiter = '\t';
+                log('区切り文字をタブとして検出しました。');
+            } else {
+                log('区切り文字をカンマとして検出しました。');
+            }
+
+
+            const headers = lines[0].split(delimiter).map(h => h.trim());
+            
+            // ヘッダーのインデックスを特定
+            const startIndex = headers.indexOf('開始時刻');
+            const completeIndex = headers.indexOf('完了時刻');
+            const nameIndex = headers.indexOf('名前');
+            const typeIndex = headers.indexOf('出勤/退勤'); // 打刻内容（出勤しました/退勤しましたなど）
+
+            if (startIndex === -1 || completeIndex === -1 || nameIndex === -1 || typeIndex === -1) {
+                log(`エラー: 必要なヘッダーが見つかりません。期待するヘッダー: '開始時刻', '完了時刻', '名前', '出勤/退勤'。現在のヘッダー: ${headers.join(', ')}`);
+                alert('ファイルに必要な列（開始時刻, 完了時刻, 名前, 出勤/退勤）が見つかりませんでした。ファイル形式とヘッダー名を確認してください。');
+                return;
+            }
+
+            // Map<date, Map<name, { date, name, firstInTime, lastOutTime, originalEntryType }>>
+            const aggregatedData = new Map(); // 日付-名前 でデータを集約するためのマップ
+
+            for (let i = 1; i < lines.length; i++) {
+                const data = lines[i].split(delimiter); // 動的に判定した区切り文字を使用
+                if (data.length <= Math.max(startIndex, completeIndex, nameIndex, typeIndex)) {
+                    log(`警告: 行${i+1}のデータが不完全です。スキップします。内容: ${lines[i]}`);
+                    continue;
+                }
+
+                const startDateTimeStr = data[startIndex] ? data[startIndex].trim() : '';
+                const completeDateTimeStr = data[completeIndex] ? data[completeIndex].trim() : '';
+                const name = data[nameIndex] ? data[nameIndex].trim() : '';
+                const type = data[typeIndex] ? data[typeIndex].trim() : ''; // 例: "出勤しました", "退勤しました"
+
+                if (!name || !startDateTimeStr || !completeDateTimeStr) {
+                    // 名前または時刻データが欠落している行はスキップ
+                    log(`警告: 行${i+1}に必要なデータが欠落しています（名前、開始時刻、完了時刻のいずれか）。スキップします。内容: ${lines[i]}`);
+                    continue;
+                }
+
+                const rawDatePart = startDateTimeStr.split(' ')[0];
+                const date = normalizeDate(rawDatePart); // 日付を正規化
+                const currentTime = startDateTimeStr.split(' ')[1] ? startDateTimeStr.split(' ')[1].substring(0, 5) : ''; // HH:MM形式に
+                const completedTime = completeDateTimeStr.split(' ')[1] ? completeDateTimeStr.split(' ')[1].substring(0, 5) : ''; // HH:MM形式に
+
+                const key = `${date}-${name}`;
+                if (!aggregatedData.has(key)) {
+                    aggregatedData.set(key, {
+                        date: date,
+                        name: name,
+                        firstInTime: '23:59', // その日の最も早い出勤時刻を保持
+                        lastOutTime: '00:00', // その日の最も遅い退勤時刻を保持
+                        originalEntryType: new Set() // その日の全ての打刻タイプを保持 (備考用)
+                    });
+                }
+
+                const dailyRecord = aggregatedData.get(key);
+                // 出勤打刻の場合、最も早い時刻を更新
+                if (type.includes('出勤') && currentTime && timeToMinutes(currentTime) < timeToMinutes(dailyRecord.firstInTime)) {
+                    dailyRecord.firstInTime = currentTime;
+                }
+                // 退勤打刻の場合、最も遅い時刻を更新
+                if (type.includes('退勤') && completedTime && timeToMinutes(completedTime) > timeToMinutes(dailyRecord.lastOutTime)) {
+                    dailyRecord.lastOutTime = completedTime;
+                }
+                dailyRecord.originalEntryType.add(type); // 出勤/退勤の打刻内容を収集
+            }
+            
+            const newAttendanceRecords = [];
+            for (const [key, dailyRecord] of aggregatedData.entries()) {
+                let calculatedLeaveType = '';
+                let calculatedNotes = Array.from(dailyRecord.originalEntryType).join(' / '); // デフォルトの備考は元の打刻内容
+
+                const currentStartTime = dailyRecord.firstInTime === '23:59' ? '' : dailyRecord.firstInTime;
+                const currentEndTime = dailyRecord.lastOutTime === '00:00' ? '' : dailyRecord.lastOutTime;
+
+                // 全休判定
+                if (!currentStartTime && !currentEndTime) {
+                    calculatedLeaveType = 'fullday';
+                    calculatedNotes = '全休';
+                } else {
+                    const actualWorkMinutes = calculateActualWorkMinutes(currentStartTime, currentEndTime);
+                    
+                    // 半休判定 (実労働時間が半日勤務の目安範囲内か)
+                    if (actualWorkMinutes >= HALF_DAY_MIN_MINUTES && actualWorkMinutes <= HALF_DAY_MAX_MINUTES) {
+                        const startMinutes = timeToMinutes(currentStartTime);
+                        const endMinutes = timeToMinutes(currentEndTime);
+
+                        // 午後半休のパターン: 始業時刻の許容範囲内に出勤し、昼休憩開始目安までに退勤
+                        if (startMinutes >= STANDARD_START_MINUTES && startMinutes <= STANDARD_START_MINUTES + FLEXIBILITY_MARGIN_MINUTES &&
+                            endMinutes >= MORNING_BREAK_START_MINUTES - FLEXIBILITY_MARGIN_MINUTES && endMinutes <= MORNING_BREAK_END_MINUTES) {
+                            calculatedLeaveType = 'halfday';
+                            calculatedNotes = calculatedNotes.includes('半休') ? calculatedNotes : '午後半休';
+                        } 
+                        // 午前半休のパターン: 昼休憩終了目安から許容範囲内に出勤し、終業時刻の許容範囲内までに退勤
+                        else if (startMinutes >= MORNING_BREAK_END_MINUTES && startMinutes <= MORNING_BREAK_END_MINUTES + FLEXIBILITY_MARGIN_MINUTES &&
+                                 endMinutes >= STANDARD_END_MINUTES - FLEXIBILITY_MARGIN_MINUTES && endMinutes <= STANDARD_END_MINUTES + FLEXIBILITY_MARGIN_MINUTES) {
+                            calculatedLeaveType = 'halfday';
+                            calculatedNotes = calculatedNotes.includes('半休') ? calculatedNotes : '午前半休';
+                        }
+                    }
+                }
+
+                newAttendanceRecords.push({
+                    date: dailyRecord.date,
+                    name: dailyRecord.name,
+                    startTime: currentStartTime,
+                    endTime: currentEndTime,
+                    leaveType: calculatedLeaveType,
+                    notes: calculatedNotes
+                });
+            }
+            
+            attendanceRecords = newAttendanceRecords; // 既存のレコードを上書き
+            updateFilters();
+            renderAttendanceRecords();
+            log(`ファイルから ${newAttendanceRecords.length} 件の記録が読み込まれました。`);
+        }
+
+        // 指定された月の全ての日付 (YYYY-MM-DD形式) を取得するヘルパー関数
+        function getDaysInMonth(yearMonth) {
+            const [year, month] = yearMonth.split('-').map(Number); // YYYY-MM形式が前提
+            const days = [];
+            // Dateオブジェクトはローカルタイムゾーンで動作するため、toISOString().substring(0, 10)によるズレを回避
+            const tempDate = new Date(year, month - 1, 1); 
+
+            while (tempDate.getMonth() === month - 1) {
+                const currentYear = tempDate.getFullYear();
+                const currentMonth = String(tempDate.getMonth() + 1).padStart(2, '0');
+                const currentDay = String(tempDate.getDate()).padStart(2, '0');
+                days.push(`${currentYear}-${currentMonth}-${currentDay}`);
+                tempDate.setDate(tempDate.getDate() + 1);
+            }
+            return days;
+        }
+
+        // 欠勤日を全休として自動追加する関数
+        function addMissingFullDayOffs() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            if (!selectedMonth) {
+                alert('先に「月で絞り込む」から対象の月を選択してください。');
+                return;
+            }
+
+            const uniqueNames = [...new Set(attendanceRecords.map(record => record.name))];
+            if (uniqueNames.length === 0) {
+                alert('まずCSVデータを読み込むか、手動で記録を追加して担当者を登録してください。');
+                return;
+            }
+
+            const allDaysInMonth = getDaysInMonth(selectedMonth);
+            let addedCount = 0;
+
+            uniqueNames.forEach(name => {
+                allDaysInMonth.forEach(date => {
+                    const hasRecord = attendanceRecords.some(record => record.date === date && record.name === name);
+                    if (!hasRecord) {
+                        attendanceRecords.push({
+                            date: date,
+                            name: name,
+                            startTime: '',
+                            endTime: '',
+                            leaveType: 'fullday',
+                            notes: '全休 (自動追加)'
+                        });
+                        addedCount++;
+                    }
+                });
+            });
+
+            if (addedCount > 0) {
+                alert(`${selectedMonth}の欠勤日に${addedCount}件の全休記録を自動追加しました。`);
+                updateFilters();
+                renderAttendanceRecords();
+                log(`${selectedMonth}の欠勤日に${addedCount}件の全休記録を自動追加しました。`);
+            } else {
+                alert('選択された月において、欠勤日として自動追加できる記録はありませんでした。');
+                log('自動追加できる全休記録はありませんでした。');
+            }
+        }
+
+        // 初期表示
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('date').valueAsDate = new Date(); // 今日の日付をデフォルトに
+            document.getElementById('startTime').value = STANDARD_START_TIME;
+            document.getElementById('endTime').value = STANDARD_END_TIME;
+            updateFilters(); // 初期データに基づいてフィルタを生成
+            renderAttendanceRecords(); // 初期データを表示
+            log('アプリがロードされました。');
+        });
+    </script>
+</body>
+</html>
